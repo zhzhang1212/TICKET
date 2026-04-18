@@ -15,7 +15,7 @@ app.include_router(booking.router, prefix="/api/v1")
 @app.get("/")
 async def index(request: Request):
     # 返回前端骨架页面
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.on_event("startup")
 async def startup_event():
