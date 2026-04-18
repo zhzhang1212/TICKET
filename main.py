@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from routers import booking
+from routers.ws import router as ws_router
+from modules.space.router import router as space_router
+from modules.event.router import router as event_router
 
 app = FastAPI(title="智约校园")
 
@@ -10,7 +12,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # 注册业务路由
-app.include_router(booking.router, prefix="/api/v1")
+app.include_router(ws_router, prefix="/api/v1")
+app.include_router(space_router, prefix="/api/v1")
+app.include_router(event_router, prefix="/api/v1")
 
 @app.get("/")
 async def index(request: Request):
