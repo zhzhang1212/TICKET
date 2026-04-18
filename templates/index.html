@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智约校园</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 后续通过组件化装载 -->
+        <h1>智约校园 - 预定大厅</h1>
+        <button id="btn-book">测试抢订资源</button>
+        <p id="status-msg"></p>
+    </div>
+
+    <!-- 模块化引入 ES6 脚本 -->
+    <script type="module" src="/static/js/core/api.js"></script>
+    <script type="module" src="/static/js/core/ws.js"></script>
+    <script type="module" src="/static/js/features/booking.js"></script>
+</body>
+</html>
