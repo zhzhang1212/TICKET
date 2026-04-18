@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         statusMsg.innerText = "正在进行瞬发网络请求抢占...";
         
         try {
-            const r = await fetch("/api/v1/booking", {
+            const r = await fetch("/api/v1/events/seckill", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
