@@ -5,18 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智约校园</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
+        .qr-mock { margin-top:20px; padding: 15px; border:2px dashed #4caf50; display:inline-block; font-weight:bold; color: #333; background: #e8f5e9; border-radius: 8px;}
+        .controls { margin-bottom: 20px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        button { padding: 12px 20px; border:none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;}
+        button:hover { opacity: 0.8;}
+        button:disabled { background: #ccc !important; cursor: not-allowed;}
+    </style>
 </head>
 <body>
     <div id="app">
-        <!-- 后续通过组件化装载 -->
-        <h1>智约校园 - 预定大厅</h1>
-        <button id="btn-book">测试抢订资源</button>
-        <p id="status-msg"></p>
+        <h1 style="color: #2c3e50;">智约校园 - 极速体验大厅</h1>
+        <div class="controls">
+            <h3 style="margin-top:0">🎭 第一步：模拟管理员</h3>
+            <button id="btn-init" style="background:#ffc107; color:#333;">点击发布活动 [羽毛球场 test_slot_1] (释出2个坑位)</button>
+        </div>
+        
+        <div class="controls">
+            <h3 style="margin-top:0">🧑‍🎓 第二步：模拟学生体验抢夺</h3>
+            <button id="btn-book" style="background:#4caf50; color:white;">⚡ 一键极速抢订！(抢夺 test_slot_1)</button>
+            <div id="status-msg" style="margin-top:20px; font-size:1.2em; color:#666;"></div>
+        </div>
     </div>
 
     <!-- 模块化引入 ES6 脚本 -->
-    <script type="module" src="/static/js/core/api.js"></script>
-    <script type="module" src="/static/js/core/ws.js"></script>
     <script type="module" src="/static/js/features/booking.js"></script>
 </body>
 </html>
