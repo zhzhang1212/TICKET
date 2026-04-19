@@ -14,14 +14,17 @@ export class WebSocketManager {
         this.socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.status === "success") {
-                statusMsgEl.innerText = "✅ 后端入库排队完成：" + data.msg;
+                statusMsgEl.innerText = "✅ " + data.msg;
                 statusMsgEl.style.color = "green";
                 
-                // 生成功二维码特效等
-                const code = document.createElement("div");
-                code.className = "qr-mock";
-                code.innerText = "【凭证号：" + Math.random().toString(36).substring(7) + "】";
-                statusMsgEl.appendChild(code);
+                // 收到后端确权通知后，自动刷新主页的档案列表，获取最新的状态数据
+                if (typeof window.fetchProfile === "function") {
+                    const userStr = localStorage.getItem("campus_user");
+                    if (userStr) {
+                        const user = JSON.parse(userStr);
+                        window.fetchProfile(user.userId || user.id);
+                    }
+                }
             }
         };
         
