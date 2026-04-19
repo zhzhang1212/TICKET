@@ -8,29 +8,37 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
         body { font-family: sans-serif; background: #fafafa; padding: 20px;}
-        .qr-mock { margin-top:20px; padding: 15px; border:2px dashed #4caf50; display:inline-block; font-weight:bold; color: #333; background: #e8f5e9; border-radius: 8px;}
-        .controls { margin-bottom: 20px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
-        button { padding: 12px 20px; border:none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;}
-        button:hover { opacity: 0.8;}
-        button:disabled { background: #ccc !important; cursor: not-allowed;}
+        h1 { color: #2c3e50; text-align: center; }
+        .card-container { display: flex; gap: 20px; justify-content: center; margin-top: 40px; flex-wrap: wrap;}
+        .card { flex: 1; min-width: 280px; max-width: 350px; background: #fff; padding: 30px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; text-align: center; text-decoration: none; color: inherit;}
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.15);}
+        .card h2 { margin-top: 0; color: #4caf50; }
+        .card p { color: #555; line-height: 1.5; }
+        .card.event h2 { color: #e91e63; }
+        .card.space h2 { color: #2196f3; }
+        .card.fsm h2 { color: #ff9800; }
     </style>
 </head>
 <body>
     <div id="app">
-        <h1 style="color: #2c3e50;">智约校园 - 极速体验大厅</h1>
-        <div class="controls">
-            <h3 style="margin-top:0">🎭 第一步：模拟管理员</h3>
-            <button id="btn-init" style="background:#ffc107; color:#333;">点击发布活动 [羽毛球场 test_slot_1] (释出2个坑位)</button>
-        </div>
+        <h1>智约校园 - 模块入口</h1>
         
-        <div class="controls">
-            <h3 style="margin-top:0">🧑‍🎓 第二步：模拟学生体验抢夺</h3>
-            <button id="btn-book" style="background:#4caf50; color:white;">⚡ 一键极速抢订！(抢夺 test_slot_1)</button>
-            <div id="status-msg" style="margin-top:20px; font-size:1.2em; color:#666;"></div>
+        <div class="card-container">
+            <a href="/space" class="card space">
+                <h2>🏫 空间预订</h2>
+                <p>探索学术、体育等常规开放空间，体验平稳时段和防冲突管理及 5 分钟缓冲释放机制。</p>
+            </a>
+
+            <a href="/event" class="card event">
+                <h2>⚡ 活动秒杀</h2>
+                <p>处理火爆讲座、限时放票等高并发场景，体验 Redis 队列削峰、 Celery 异步落库防御架构。</p>
+            </a>
+
+            <a href="/rules_fsm" class="card fsm">
+                <h2>⚙️ 规则与风控中心</h2>
+                <p>核心防御流转系统。动态计分、防重规则和状态机机制观测（不对外开放服务）。</p>
+            </a>
         </div>
     </div>
-
-    <!-- 模块化引入 ES6 脚本 -->
-    <script type="module" src="/static/js/features/booking.js"></script>
 </body>
 </html>

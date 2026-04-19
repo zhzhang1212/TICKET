@@ -1,4 +1,4 @@
-import { WebSocketManager } from "../core/ws.js";
+import { WebSocketManager } from "/static/js/core/ws.js";
 
 const WS_URL = !!location.hostname ? `ws://${location.host}/api/v1/ws` : null; 
 let wsManager = null;

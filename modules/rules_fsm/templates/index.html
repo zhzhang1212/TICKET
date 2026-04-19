@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>底层规则与风控中心</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
+        .card { padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px;}
+        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #4caf50; text-decoration: none;}
+    </style>
+</head>
+<body>
+    <div id="app">
+        <a href="/" class="back-link">← 返回首页</a>
+        <h1 style="color: #2c3e50;">底层规则 FSM 中心</h1>
+        <div class="card">
+            <h3>⚙️ 动态规则与状态流转引擎</h3>
+            <p>展示当前的全局计分、防重规则和状态机制。</p>
+            <p style="color:#888;">底层防御屏障：负责违约扣分、限流等逻辑监测。</p>
+        </div>
+    </div>
+    <script type="module" src="/static/rules_fsm/js/fsm.js"></script>
+</body>
+</html>
