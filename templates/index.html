@@ -45,8 +45,61 @@
                 <p>核心防御流转系统。动态计分、防重规则和状态机机制观测（不对外开放服务）。</p>
             </a>
         </div>
+
+        <!-- 👇 新增：个人档案数据展示面板 -->
+        <div id="my-bookings" style="margin-top: 40px; display: none;">
+            <h2 style="color: #2c3e50;">📝 我的档案与预定记录</h2>
+            <div id="records-container" style="background:#fff; padding:30px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); display:flex; gap: 20px; text-align: left;">
+                
+                <div style="flex:1;">
+                    <h3 style="color:#e91e63;">🎟️ 抢票活动凭证 (Event)</h3>
+                    <div id="records-tickets" style="color:#666; font-size:0.95em;">加载中...</div>
+                </div>
+
+                <div style="flex:1;">
+                    <h3 style="color:#2196f3;">🏫 预约空间房间 (Room)</h3>
+                    <div id="records-rooms" style="color:#666; font-size:0.95em;">加载中...</div>
+                </div>
+
+                <div style="flex:1;">
+                    <h3 style="color:#4caf50;">🏸 预约体育设施 (Venue)</h3>
+                    <div id="records-venues" style="color:#666; font-size:0.95em;">加载中...</div>
+                </div>
+
+            </div>
+        </div>
+
     </div>
     <script>
+        async function fetchProfile(userId) {
+            try {
+                const res = await fetch(`/api/v1/auth/profile/${userId}`);
+                const data = await res.json();
+                
+                // 渲染 Tickets
+                let ticketHtml = data.tickets.length === 0 ? "暂无历史记录<br><br>" : "";
+                data.tickets.forEach(t => {
+                    const passColor = t.status.includes('成功') ? 'green' : (t.status.includes('失败') ? 'red' : 'darkorange');
+                    ticketHtml += `
+                        <div style="border-left: 4px solid ${passColor}; padding-left: 10px; margin-bottom: 12px; background: #fdfdfd; padding: 10px;">
+                            <strong>${t.event_name}</strong> [${t.slot_id}]<br>
+                            👉 状态: <span style="color:${passColor}; font-weight:bold;">${t.status}</span><br>
+                            👉 凭证: <span style="font-family:monospace;">${t.voucher}</span>
+                        </div>
+                    `;
+                });
+                document.getElementById("records-tickets").innerHTML = ticketHtml;
+
+                // 渲染 Rooms / Venues (Space 模块暂未完全连接数据，此处兼容数据展示)
+                document.getElementById("records-rooms").innerHTML = data.rooms.length === 0 ? "暂无空间排期" : data.rooms.map(r => `<p>${r.name}</p>`).join("");
+                document.getElementById("records-venues").innerHTML = data.venues.length === 0 ? "暂无场馆排期" : data.venues.map(v => `<p>${v.name}</p>`).join("");
+                
+                document.getElementById("my-bookings").style.display = "block";
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             const userStr = localStorage.getItem("campus_user");
             if (!userStr) {
@@ -58,6 +111,7 @@
                     document.getElementById('curr-username').innerText = user.username;
                     document.getElementById('curr-reputation').innerText = user.reputation;
                     document.getElementById('user-profile').style.display = 'block';
+                    fetchProfile(user.userId);
                 } catch(e) {
                     window.location.href = "/login";
                 }

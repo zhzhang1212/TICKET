@@ -55,3 +55,29 @@ async def login_or_register(req: LoginRequest):
             "username": req.username, 
             "reputation": 100
         }
+
+import json
+@router.get("/profile/{user_id}", summary="获取用户各项预定状态")
+async def get_user_profile(user_id: str):
+    """
+    返回用户所有的活动抢票状态以及空间预定情况
+    """
+    redis = await get_redis()
+    
+    # 抢票记录
+    tickets_raw = await redis.hgetall(f"user_tickets:{user_id}")
+    tickets = [json.loads(v) for v in tickets_raw.values()] if tickets_raw else []
+    
+    # 预定房间
+    rooms_raw = await redis.hgetall(f"user_rooms:{user_id}")
+    rooms = [json.loads(v) for v in rooms_raw.values()] if rooms_raw else []
+    
+    # 预定场馆
+    venues_raw = await redis.hgetall(f"user_venues:{user_id}")
+    venues = [json.loads(v) for v in venues_raw.values()] if venues_raw else []
+    
+    return {
+        "tickets": tickets,
+        "rooms": rooms,
+        "venues": venues
+    }

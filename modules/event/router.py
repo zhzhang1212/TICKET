@@ -23,6 +23,8 @@ async def create_event(event: EventCreate):
     await redis.set(slot_key, event.capacity)
     return {"message": f"成功发布活动 {event.slot_id}，总票数: {event.capacity}"}
 
+import json
+
 @router.post("/seckill", response_model=EventTicketResponse, summary="【用户接口】热门活动的门票抢注")
 async def seckill_event_ticket(request: EventTicketRequest):
     """
@@ -32,9 +34,22 @@ async def seckill_event_ticket(request: EventTicketRequest):
     redis = await get_redis()
     slot_key = f"slot_stock:{request.slot_id}"
     
+    # 极速建立等待状态到用户凭证列表
+    ticket_info = {
+        "event_name": request.resource_id,
+        "slot_id": request.slot_id,
+        "status": "等待中...",
+        "voucher": "排队发放中"
+    }
+    await redis.hset(f"user_tickets:{request.user_id}", request.slot_id, json.dumps(ticket_info))
+    
     # 极速预扣
     success = await redis.eval(LUA_DECR_SCRIPT, 1, slot_key)
     if not success:
+        # 秒杀失败，立刻把状态置为已失败
+        ticket_info["status"] = "失败 (已售罄)"
+        ticket_info["voucher"] = "-"
+        await redis.hset(f"user_tickets:{request.user_id}", request.slot_id, json.dumps(ticket_info))
         raise HTTPException(status_code=400, detail="手慢了，该时段资源已被抢空！")
     
     # 异步推入队列做假装落库的耗时操作

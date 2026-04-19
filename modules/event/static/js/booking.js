@@ -60,7 +60,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 statusMsg.style.color = "blue";
             } else {
                 // Redis 发现满载，没票了，拒绝！
-                statusMsg.innerText = "❌ 失败: " + res.detail;
+                const errorStr = typeof res.detail === "string" ? res.detail : JSON.stringify(res.detail);
+                statusMsg.innerText = "❌ 失败: " + errorStr;
                 statusMsg.style.color = "red";
             }
         } catch (e) {

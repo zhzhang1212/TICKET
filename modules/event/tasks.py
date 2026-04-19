@@ -1,5 +1,6 @@
 import time
 import json
+import uuid
 from celery import Celery
 import redis
 import logging
@@ -26,15 +27,32 @@ def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str):
         # ⚠️ 这里模拟数据库由于存在磁盘寻道时间、唯一索引校验导致的耗时 (2秒)
         time.sleep(2)
         
+        # 成功落库生成凭证号
+        voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
+        ticket_info = {
+            "event_name": resource_id,
+            "slot_id": slot_id,
+            "status": "抢票成功",
+            "voucher": voucher
+        }
+        sync_redis.hset(f"user_tickets:{user_id}", slot_id, json.dumps(ticket_info))
+        
         # 落库成功！推送成功给 Redis PubSub 频道
         msg = {
             "status": "success", 
-            "msg": f"恭喜！您已成功锁定 {slot_id} 凭证！"
+            "msg": f"恭喜！您已成功获得 [{resource_id}] 凭证：{voucher}"
         }
         sync_redis.publish(f"notify_{user_id}", json.dumps(msg))
         logging.info(f"==> Worker 落库完毕，并推送 WebSocekt 通知给 {user_id}")
         
     except Exception as e:
         logging.error(f"Booking conflict: {e}")
-        # 如果因为重复键冲突，需要将 Redis 被扣的库存回退 (+1)
+        # 如果因为重复键冲突等，需要将 Redis 被扣的库存回退 (+1)，并更新状态
         sync_redis.incr(f"slot_stock:{slot_id}")
+        ticket_info = {
+            "event_name": resource_id,
+            "slot_id": slot_id,
+            "status": "失败 (业务异常退单)",
+            "voucher": "-"
+        }
+        sync_redis.hset(f"user_tickets:{user_id}", slot_id, json.dumps(ticket_info))
