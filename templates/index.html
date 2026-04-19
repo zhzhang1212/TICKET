@@ -76,9 +76,15 @@
                 const res = await fetch(`/api/v1/auth/profile/${userId}`);
                 const data = await res.json();
                 
-                // 渲染 Tickets
-                let ticketHtml = data.tickets.length === 0 ? "暂无历史记录<br><br>" : "";
-                data.tickets.forEach(t => {
+                // 处理并倒序排序 Tickets（按时间戳从新到旧）
+                const sortedTickets = data.tickets.sort((a, b) => {
+                    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                    return timeB - timeA;
+                });
+                
+                let ticketHtml = sortedTickets.length === 0 ? "暂无历史记录<br><br>" : "";
+                sortedTickets.forEach(t => {
                     const passColor = t.status.includes('成功') ? 'green' : (t.status.includes('失败') ? 'red' : 'darkorange');
                     ticketHtml += `
                         <div style="border-left: 4px solid ${passColor}; padding-left: 10px; margin-bottom: 12px; background: #fdfdfd; padding: 10px;">
