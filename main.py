@@ -8,10 +8,10 @@ from modules.event.router import router as event_router
 app = FastAPI(title="智约校园")
 
 # 挂载静态文件与模板
-app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/static/space", StaticFiles(directory="modules/space/static"), name="space_static")
 app.mount("/static/event", StaticFiles(directory="modules/event/static"), name="event_static")
 app.mount("/static/rules_fsm", StaticFiles(directory="modules/rules_fsm/static"), name="fsm_static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
 space_templates = Jinja2Templates(directory="modules/space/templates")
