@@ -25,7 +25,6 @@ function initBooking() {
     const eventDesc = document.getElementById("event-desc");
     const eventTotal = document.getElementById("event-total");
     const eventStock = document.getElementById("event-stock");
-    const successList = document.getElementById("success-list");
 
     const fetchEventDetail = async (slotId) => {
         try {
@@ -35,22 +34,10 @@ function initBooking() {
                 eventDesc.innerText = data.description || "无描述信息。";
                 eventTotal.innerText = data.total_capacity;
                 eventStock.innerText = data.remaining_stock;
-                
-                successList.innerHTML = ""; // 清空旧数据
-                if (data.successful_bookings && data.successful_bookings.length > 0) {
-                    data.successful_bookings.forEach(b => {
-                        const li = document.createElement("li");
-                        li.innerText = `用户: ${b.user_id} | 凭证: ${b.voucher} | 时间: ${b.timestamp}`;
-                        successList.appendChild(li);
-                    });
-                } else {
-                    successList.innerHTML = '<li style="color:#999; list-style:none;">暂无抢票成功记录...</li>';
-                }
             } else {
                 eventDesc.innerText = "🚨 尚未由管理员发布或获取失败";
                 eventTotal.innerText = "--";
                 eventStock.innerText = "--";
-                successList.innerHTML = '<li style="color:#999; list-style:none;">暂无抢票成功记录...</li>';
             }
         } catch(e) {
             console.error("加载活动详情异常", e);
