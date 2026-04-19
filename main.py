@@ -42,6 +42,10 @@ async def space_page(request: Request):
 async def event_page(request: Request):
     return event_templates.TemplateResponse(request=request, name="index.html")
 
+@app.get("/event/detail")
+async def event_detail_page(request: Request, slot_id: str = ""):
+    return event_templates.TemplateResponse(request=request, name="detail.html")
+
 @app.get("/rules_fsm")
 async def fsm_page(request: Request):
     return fsm_templates.TemplateResponse(request=request, name="index.html")

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活动秒杀详情</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
+        .controls { margin-bottom: 20px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        button { padding: 12px 20px; border:none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;}
+        button:hover { opacity: 0.8;}
+        button:disabled { background: #ccc !important; cursor: not-allowed;}
+        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #4caf50; text-decoration: none;}
+    </style>
+</head>
+<body>
+    <div id="app">
+        <a href="/event" class="back-link">← 返回大厅</a>
+        <h1 style="color: #2c3e50;" id="detail-title">活动详情</h1>
+        
+        <div id="activity-detail" class="controls" style="border-left: 5px solid #4caf50;">
+            <div id="event-stats" style="margin-bottom: 15px; padding: 10px; background: #eef2f5; border-radius: 4px;">
+                <p id="event-desc" style="color: #666; margin-top: 0;"></p>
+                <div>🎟️ <strong>有效票数：</strong> <span id="event-total">--</span></div>
+                <div>🎫 <strong>剩余票数：</strong> <span id="event-stock">--</span></div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                
+                <button id="btn-book" style="background:#4caf50; color:white; margin-left:10px;">点击报名</button>
+            </div>
+            <div id="status-msg" style="margin-top:20px; font-size:1.2em; color: #666;"></div>
+        </div>
+    </div>
+    <script type="module">
+        import("/static/event/js/detail.js?t=" + new Date().getTime());
+    </script>
+</body>
+</html>

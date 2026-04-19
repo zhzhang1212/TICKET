@@ -16,6 +16,9 @@
         button:hover { opacity: 0.8;}
         button:disabled { background: #ccc !important; cursor: not-allowed;}
         .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #4caf50; text-decoration: none;}
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .event-card { padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border: 1px solid #eee; border-top-width: 5px; display:flex; flex-direction:column; justify-content:space-between; }
+        .event-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -23,27 +26,15 @@
         <a href="/" class="back-link">← 返回首页</a>
         <h1 style="color: #2c3e50;">活动秒杀服务体验大厅</h1>
         
-        <div id="activity-list" class="controls">
+        <div id="activity-list">
             <h3 style="margin-top:0">📢 当前火爆活动列表</h3>
-            <div id="dynamic-events-container" style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div id="dynamic-events-container" class="grid-container">
                 <span style="color:#aaa;">正在加载活动...</span>
             </div>
         </div>
 
         <div id="activity-detail" class="controls" style="display:none; border-left: 5px solid #4caf50;">
-            <h3 style="margin-top:0" id="detail-title">活动详情</h3>
-            
-            <div id="event-stats" style="margin-bottom: 15px; padding: 10px; background: #eef2f5; border-radius: 4px;">
-                <p id="event-desc" style="color: #666; margin-top: 0;"></p>
-                <div>🎟️ <strong>有效票数：</strong> <span id="event-total">--</span></div>
-                <div>🎫 <strong>剩余票数：</strong> <span id="event-stock">--</span></div>
-            </div>
-            
-            <div style="margin-top: 15px;">
-                <strong>🧑‍🎓 学生抢夺：</strong>
-                <button id="btn-book" style="background:#4caf50; color:white; margin-left:10px;">⚡ 立即抢占该活动！</button>
-            </div>
-            <div id="status-msg" style="margin-top:20px; font-size:1.2em; color:#666;"></div>
+            <!-- details moved to detail.html -->
         </div>
     </div>
 
