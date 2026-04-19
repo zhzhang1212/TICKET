@@ -20,31 +20,93 @@ function initBooking() {
     const bookBtn = document.getElementById("btn-book");
     const detailPanel = document.getElementById("activity-detail");
     const detailTitle = document.getElementById("detail-title");
+    
+    // New DOM elements
+    const eventDesc = document.getElementById("event-desc");
+    const eventTotal = document.getElementById("event-total");
+    const eventStock = document.getElementById("event-stock");
+    const successList = document.getElementById("success-list");
+
+    const fetchEventDetail = async (slotId) => {
+        try {
+            const r = await fetch(`/api/v1/events/${slotId}`);
+            if (r.ok) {
+                const data = await r.json();
+                eventDesc.innerText = data.description || "无描述信息。";
+                eventTotal.innerText = data.total_capacity;
+                eventStock.innerText = data.remaining_stock;
+                
+                successList.innerHTML = ""; // 清空旧数据
+                if (data.successful_bookings && data.successful_bookings.length > 0) {
+                    data.successful_bookings.forEach(b => {
+                        const li = document.createElement("li");
+                        li.innerText = `用户: ${b.user_id} | 凭证: ${b.voucher} | 时间: ${b.timestamp}`;
+                        successList.appendChild(li);
+                    });
+                } else {
+                    successList.innerHTML = '<li style="color:#999; list-style:none;">暂无抢票成功记录...</li>';
+                }
+            } else {
+                eventDesc.innerText = "🚨 尚未由管理员发布或获取失败";
+                eventTotal.innerText = "--";
+                eventStock.innerText = "--";
+                successList.innerHTML = '<li style="color:#999; list-style:none;">暂无抢票成功记录...</li>';
+            }
+        } catch(e) {
+            console.error("加载活动详情异常", e);
+        }
+    };
 
     statusMsg.innerText = `👋 欢迎你: ${username} (${userId})`;
     wsManager = new WebSocketManager(`${WS_URL}/${userId}`);
     wsManager.connect(statusMsg);
 
+    // Patch wsManager callback setup to refresh detailed list if matching event
+    const oldOnMessage = wsManager.socket.onmessage;
+    wsManager.socket.onmessage = (event) => {
+        if (oldOnMessage) oldOnMessage(event);
+        const data = JSON.parse(event.data);
+        if (data.status === "success" && currentEventId) {
+            // refresh details half a second after worker clears to let redis persist properly
+            setTimeout(() => {
+                fetchEventDetail(currentEventId);
+            }, 500);
+        }
+    };
+
     document.querySelectorAll(".activity-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
+        btn.addEventListener("click", async (e) => {
             currentEventId = e.target.dataset.id;
             currentEventName = e.target.dataset.name;
             detailTitle.innerText = `🎫 ${currentEventName}`;
             detailPanel.style.display = "block";
             statusMsg.innerText = "";
+            await fetchEventDetail(currentEventId);
         });
     });
 
     initBtn.addEventListener("click", async () => {
         if (!currentEventId) return;
         try {
+            const descDict = {
+                "concert_2026": "某明星的2026春季校园巡演专场，超级火热不容错过！",
+                "singing_contest": "校级年度十佳歌手争霸赛巅峰之战决赛门票！"
+            };
+            const postData = {
+                event_name: currentEventName,
+                description: descDict[currentEventId] || "精彩活动即将开始！",
+                slot_id: currentEventId,
+                capacity: 3
+            };
+            
             const r = await fetch("/api/v1/events", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({slot_id: currentEventId, capacity: 2})
+                body: JSON.stringify(postData)
             });
             const res = await r.json();
             alert(res.message);
+            await fetchEventDetail(currentEventId); // Auto refresh
         } catch (e) {
             console.error("创建失败", e);
         }

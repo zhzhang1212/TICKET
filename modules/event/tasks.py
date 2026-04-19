@@ -31,6 +31,14 @@ def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, vou
         }
         sync_redis.hset(f"user_tickets:{user_id}", voucher, json.dumps(ticket_info))
         
+        # 追加记录到该活动的成功列表中
+        booking_record = {
+            "user_id": user_id,
+            "voucher": voucher,
+            "timestamp": timestamp
+        }
+        sync_redis.rpush(f"event_bookings:{slot_id}", json.dumps(booking_record))
+        
         msg = {
             "status": "success", 
             "msg": f"落库成功（凭证：{voucher}，时间：{timestamp}）"

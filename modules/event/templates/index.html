@@ -33,11 +33,16 @@
 
         <div id="activity-detail" class="controls" style="display:none; border-left: 5px solid #4caf50;">
             <h3 style="margin-top:0" id="detail-title">活动详情</h3>
-            <p style="color: #555;">正在查看该特定活动的抢票通道。</p>
+            
+            <div id="event-stats" style="margin-bottom: 15px; padding: 10px; background: #eef2f5; border-radius: 4px;">
+                <p id="event-desc" style="color: #666; margin-top: 0;"></p>
+                <div>🎟️ <strong>有效票数：</strong> <span id="event-total">--</span></div>
+                <div>🎫 <strong>剩余票数：</strong> <span id="event-stock">--</span></div>
+            </div>
             
             <div style="margin-top: 15px;">
                 <strong>🎭 管理员操作：</strong>
-                <button id="btn-init" style="background:#ffc107; color:#333; margin-left:10px;">发布此活动 (释出2张票)</button>
+                <button id="btn-init" style="background:#ffc107; color:#333; margin-left:10px;">发布此活动 (释出3张票)</button>
             </div>
             
             <div style="margin-top: 15px;">
@@ -45,6 +50,13 @@
                 <button id="btn-book" style="background:#4caf50; color:white; margin-left:10px;">⚡ 立即抢占该活动！</button>
             </div>
             <div id="status-msg" style="margin-top:20px; font-size:1.2em; color:#666;"></div>
+            
+            <div style="margin-top: 30px;">
+                <h4>🏆 抢票成功榜单</h4>
+                <ul id="success-list" style="color: #333; background: #fdfdfd; padding: 15px 30px; border: 1px dashed #e0e0e0; border-radius: 4px; min-height: 50px;">
+                    <li style="color:#999; list-style:none;">暂无抢票成功记录...</li>
+                </ul>
+            </div>
         </div>
     </div>
 

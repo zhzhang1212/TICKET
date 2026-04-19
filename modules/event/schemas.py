@@ -1,8 +1,24 @@
 from pydantic import BaseModel
+from typing import Optional, List
 
 class EventCreate(BaseModel):
+    event_name: str
+    description: str
     slot_id: str
     capacity: int
+
+class BookingRecord(BaseModel):
+    user_id: str
+    voucher: str
+    timestamp: str
+
+class EventDetailResponse(BaseModel):
+    slot_id: str
+    event_name: str
+    description: str
+    total_capacity: int
+    remaining_stock: int
+    successful_bookings: List[BookingRecord]
 
 class EventTicketRequest(BaseModel):
     user_id: str

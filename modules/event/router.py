@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from .schemas import EventTicketRequest, EventCreate, EventTicketResponse
+from .schemas import EventTicketRequest, EventCreate, EventTicketResponse, EventDetailResponse, BookingRecord
 from core.redis_db import get_redis
 from .tasks import confirm_booking_task
+import json
+import uuid
+from datetime import datetime
 
 # 必须声明独立命名空间
 router = APIRouter(prefix="/events", tags=["Module B: 活动秒杀"])
@@ -20,13 +23,48 @@ return 0
 async def create_event(event: EventCreate):
     redis = await get_redis()
     slot_key = f"slot_stock:{event.slot_id}"
+    info_key = f"event_info:{event.slot_id}"
+    
+    # 初始化活动元数据与库存
+    await redis.hset(info_key, mapping={
+        "event_name": event.event_name,
+        "description": event.description,
+        "total_capacity": str(event.capacity),
+    })
     await redis.set(slot_key, event.capacity)
+    # 清空之前的抢票记录（方便重复测试发布新活动）
+    await redis.delete(f"event_bookings:{event.slot_id}")
+    
     return {"message": f"成功发布活动 {event.slot_id}，总票数: {event.capacity}"}
 
-import json
-
-import uuid
-import json
+@router.get("/{slot_id}", response_model=EventDetailResponse, summary="【用户接口】获取活动的特定信息、余票和成交记录")
+async def get_event_detail(slot_id: str):
+    redis = await get_redis()
+    info_key = f"event_info:{slot_id}"
+    slot_key = f"slot_stock:{slot_id}"
+    bookings_key = f"event_bookings:{slot_id}"
+    
+    info = await redis.hgetall(info_key)
+    if not info:
+        raise HTTPException(status_code=404, detail="活动未发布或不存在")
+        
+    stock = await redis.get(slot_key)
+    stock = int(stock) if stock else 0
+    
+    records = await redis.lrange(bookings_key, 0, -1)
+    successful_bookings = []
+    for record_str in records:
+        record = json.loads(record_str)
+        successful_bookings.append(BookingRecord(**record))
+        
+    return EventDetailResponse(
+        slot_id=slot_id,
+        event_name=info.get("event_name", ""),
+        description=info.get("description", ""),
+        total_capacity=int(info.get("total_capacity", 0)),
+        remaining_stock=stock,
+        successful_bookings=successful_bookings
+    )
 
 @router.post("/seckill", response_model=EventTicketResponse, summary="【用户接口】热门活动的门票抢注")
 async def seckill_event_ticket(request: EventTicketRequest):
@@ -35,9 +73,6 @@ async def seckill_event_ticket(request: EventTicketRequest):
     """
     redis = await get_redis()
     slot_key = f"slot_stock:{request.slot_id}"
-    
-    import uuid
-    from datetime import datetime
     
     # 统一使用一个凭证号作为记录ID
     voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
