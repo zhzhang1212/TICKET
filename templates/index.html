@@ -21,7 +21,13 @@
 </head>
 <body>
     <div id="app">
-        <h1>智约校园 - 模块入口</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>智约校园 - 模块入口</h1>
+            <div id="user-profile" style="background:#e8f5e9; padding: 10px 15px; border-radius: 20px; font-size:0.9em; font-weight:bold; color:#4caf50; display:none;">
+                <span id="curr-username"></span> (信誉分: <span id="curr-reputation"></span>) 
+                <a href="#" id="logout-btn" style="margin-left:10px; color:red; text-decoration:none;">[退出]</a>
+            </div>
+        </div>
         
         <div class="card-container">
             <a href="/space" class="card space">
@@ -40,5 +46,28 @@
             </a>
         </div>
     </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const userStr = localStorage.getItem("campus_user");
+            if (!userStr) {
+                // 如果未登录，直接拦截踢回登录页
+                window.location.href = "/login";
+            } else {
+                try {
+                    const user = JSON.parse(userStr);
+                    document.getElementById('curr-username').innerText = user.username;
+                    document.getElementById('curr-reputation').innerText = user.reputation;
+                    document.getElementById('user-profile').style.display = 'block';
+                } catch(e) {
+                    window.location.href = "/login";
+                }
+            }
+
+            document.getElementById('logout-btn').addEventListener("click", () => {
+                localStorage.removeItem("campus_user");
+                window.location.href = "/login";
+            });
+        });
+    </script>
 </body>
 </html>

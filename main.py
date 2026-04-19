@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from routers.ws import router as ws_router
+from routers.auth import router as auth_router
 from modules.space.router import router as space_router
 from modules.event.router import router as event_router
 
@@ -20,6 +21,7 @@ fsm_templates = Jinja2Templates(directory="modules/rules_fsm/templates")
 
 # 注册业务路由
 app.include_router(ws_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(space_router, prefix="/api/v1")
 app.include_router(event_router, prefix="/api/v1")
 
@@ -27,6 +29,10 @@ app.include_router(event_router, prefix="/api/v1")
 async def index(request: Request):
     # 返回前端骨架页面
     return templates.TemplateResponse(request=request, name="index.html")
+
+@app.get("/login")
+async def login_page(request: Request):
+    return templates.TemplateResponse(request=request, name="login.html")
 
 @app.get("/space")
 async def space_page(request: Request):

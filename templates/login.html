@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 智约校园</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { font-family: sans-serif; background: #fafafa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        .login-card h2 { margin-top: 0; color: #2c3e50; }
+        .login-card input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .login-card button { width: 100%; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .login-card button:hover { background: #45a049; }
+        .error-msg { color: red; margin-top: 10px; font-size: 0.9em; display: none;}
+        .hint { font-size: 0.8em; color: #888; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>身份验证</h2>
+        <input type="text" id="username" placeholder="请输入用户名" required>
+        <input type="password" id="password" placeholder="请输入密码" required>
+        <button id="login-btn">登录 / 自动注册</button>
+        <div id="error-msg" class="error-msg"></div>
+        <div class="hint">注：若系统查询无此账号，将按照当前输入的密码自动为您生成账号资料并初始化信用体系。</div>
+    </div>
+
+    <script>
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorDiv = document.getElementById('error-msg');
+            
+            if (!username || !password) {
+                errorDiv.innerText = "账号与密码不能为空";
+                errorDiv.style.display = "block";
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    // 存储全局身份信标
+                    localStorage.setItem('campus_user', JSON.stringify({
+                        userId: data.user_id,
+                        username: data.username,
+                        reputation: data.reputation
+                    }));
+                    alert(data.message);
+                    window.location.href = "/";
+                } else {
+                    errorDiv.innerText = data.detail || "请求失败";
+                    errorDiv.style.display = "block";
+                }
+            } catch (err) {
+                errorDiv.innerText = "网络异常";
+                errorDiv.style.display = "block";
+            }
+        });
+    </script>
+</body>
+</html>

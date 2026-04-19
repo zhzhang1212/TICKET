@@ -2,7 +2,15 @@ import { WebSocketManager } from "/static/js/core/ws.js";
 
 const WS_URL = !!location.hostname ? `ws://${location.host}/api/v1/ws` : null; 
 let wsManager = null;
-const userId = "User_" + Math.floor(Math.random() * 1000); // 假装一个用户的身份
+
+// 从全局本地存储获取之前 auth/login 存储下来的真实 User ID 模型数据
+const userSession = JSON.parse(localStorage.getItem("campus_user"));
+if (!userSession) {
+    alert("登录过期或未验证身份！");
+    window.location.href = "/login";
+}
+const userId = userSession.userId;
+const username = userSession.username;
 
 document.addEventListener("DOMContentLoaded", () => {
     const statusMsg = document.getElementById("status-msg");
@@ -10,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const bookBtn = document.getElementById("btn-book");
 
     // 1. 初始化建立自己身份的长连接
-    statusMsg.innerText = `欢迎你: ${userId}`;
+    statusMsg.innerText = `👋 欢迎你: ${username} (${userId})`;
     wsManager = new WebSocketManager(`${WS_URL}/${userId}`);
     wsManager.connect(statusMsg);
 
