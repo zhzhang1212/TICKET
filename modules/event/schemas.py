@@ -7,6 +7,11 @@ class EventCreate(BaseModel):
     slot_id: str
     capacity: int
 
+class EventUpdate(BaseModel):
+    event_name: Optional[str] = None
+    description: Optional[str] = None
+    capacity_delta: Optional[int] = None
+
 class BookingRecord(BaseModel):
     user_id: str
     voucher: str

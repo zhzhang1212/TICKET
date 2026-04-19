@@ -1,115 +1,223 @@
 function initFsmPanel() {
+    const mainDashboard = document.getElementById("main-dashboard");
     const btnTicketMgr = document.getElementById("btn-ticket-mgr");
-    const detailPanel = document.getElementById("detail-panel");
-    const eventSelector = document.getElementById("event-selector");
-    const btnRefresh = document.getElementById("btn-refresh");
-    const eventDesc = document.getElementById("event-desc");
-    const eventStockInfo = document.getElementById("event-stock-info");
-    const recordsContainer = document.getElementById("records-container");
+    const ticketManagementSection = document.getElementById("ticket-management-section");
 
+    const listContainer = document.getElementById("event-list-container");
+    const detailPanel = document.getElementById("detail-panel");
+    const btnShowPublish = document.getElementById("btn-show-publish");
+    const btnClosePanel = document.getElementById("btn-close-panel");
+
+    const editEventId = document.getElementById("edit-event-id"); // Hidden field to track if editing
+    const editEventSlotId = document.getElementById("edit-event-slot-id");
     const editEventName = document.getElementById("edit-event-name");
     const editEventDesc = document.getElementById("edit-event-desc");
     const editEventCapacity = document.getElementById("edit-event-capacity");
     const btnPublishEvent = document.getElementById("btn-publish-event");
 
-    // 点击大盘票务管理卡片展开详情面板
-    if(btnTicketMgr){
-        btnTicketMgr.addEventListener("click", () => {
-            detailPanel.style.display = "block";
-        });
+    const eventDesc = document.getElementById("event-desc");
+    const eventStockInfo = document.getElementById("event-stock-info");
+    const recordsContainer = document.getElementById("records-container");
+    const eventStats = document.getElementById("event-stats");
+    const recordsView = document.getElementById("records-view");
+    const btnRefresh = document.getElementById("btn-refresh");
+    const labelForCapacity = document.getElementById("label-for-capacity");
+    const capacityHint = document.getElementById("capacity-hint");
+
+    let currentEvents = [];
+
+    if (btnTicketMgr) {
+        btnTicketMgr.onclick = () => {
+            if (mainDashboard) mainDashboard.style.display = "none";
+            if (ticketManagementSection) ticketManagementSection.style.display = "block";
+            loadEvents();
+        };
     }
 
-    const fetchDetail = async () => {
-        const slotId = eventSelector.value;
-        if (!slotId) {
-            alert("请先选择一个特定的活动！");
-            return;
-        }
-
+    const loadEvents = async () => {
         try {
-            const r = await fetch(`/api/v1/events/${slotId}`);
+            const r = await fetch("/api/v1/events/");
             if (r.ok) {
-                const data = await r.json();
-                eventDesc.innerText = data.description || "【暂无介绍】";
-                eventStockInfo.innerText = `有效票数：${data.total_capacity} | 剩余票数：${data.remaining_stock}`;
-                
-                if (editEventName) editEventName.value = data.event_name || "";
-                if (editEventDesc) editEventDesc.value = data.description || "";
-                if (editEventCapacity) editEventCapacity.value = data.total_capacity || 0;
-                
-                recordsContainer.innerHTML = "";
-                if (data.successful_bookings && data.successful_bookings.length > 0) {
-                    // 对记录按时间排序，确保时间先后顺序
-                    const sorted = data.successful_bookings.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                    
-                    sorted.forEach((record, index) => {
-                        const li = document.createElement("li");
-                        li.className = "record-item";
-                        li.innerHTML = `
-                            <span><strong>No.${index+1}</strong> 用户: <span style="color:#2196f3">${record.user_id}</span> </strong> 凭证号: <span style="font-size:0.85em;color:#aaa">${record.voucher}</span></span>
-                            <span class="timestamp">${record.timestamp}</span>
-                        `;
-                        recordsContainer.appendChild(li);
-                    });
-                } else {
-                    recordsContainer.innerHTML = '<li class="record-item" style="color: #999;">暂无抢票成功记录...</li>';
-                }
-            } else {
-                eventDesc.innerText = "活动尚未发售或无数据。";
-                eventStockInfo.innerText = "--";
-                recordsContainer.innerHTML = '<li class="record-item" style="color: #999;">请联系活动运营管理员执行初始化发布发售。</li>';
+                currentEvents = await r.json();
+                renderEventList(currentEvents);
             }
         } catch (e) {
-            console.error(e);
-            alert("加载明细异常");
+            console.error("Failed to load events", e);
         }
     };
 
-    if(btnRefresh) btnRefresh.addEventListener("click", fetchDetail);
-    if(eventSelector) eventSelector.addEventListener("change", fetchDetail);
+    const renderEventList = (events) => {
+        if (!listContainer) return;
+        listContainer.innerHTML = "";
+        if (events.length === 0) {
+            listContainer.innerHTML = '<p style="color:#888;">暂无活动，请发布新活动。</p>';
+            return;
+        }
+        events.forEach(ev => {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML = `
+                <h3>🎫 ${ev.event_name || ev.slot_id}</h3>
+                <p style="color:#888;">${ev.description || "暂无描述"}</p>
+                <div style="font-size:0.9em; margin-top:10px;">
+                    <span>有效票数：<strong>${ev.total_capacity}</strong></span> | 
+                    <span>剩余：<strong style="color:red">${ev.remaining_stock}</strong></span>
+                </div>
+            `;
+            card.onclick = () => openEditPanel(ev);
+            listContainer.appendChild(card);
+        });
+    };
 
-    if (btnPublishEvent) {
-        btnPublishEvent.addEventListener("click", async () => {
-            const slotId = eventSelector.value;
-            if (!slotId) {
-                alert("请先选择要操作的活动！");
+    const openPublishPanel = () => {
+        if (editEventId) editEventId.value = "NEW";
+        if (editEventSlotId) {
+            editEventSlotId.value = "";
+            editEventSlotId.disabled = false;
+        }
+        if (editEventName) editEventName.value = "";
+        if (editEventDesc) editEventDesc.value = "";
+        if (editEventCapacity) editEventCapacity.value = 100;
+        
+        if (labelForCapacity) labelForCapacity.innerHTML = `初始有效票数: <input type="number" id="edit-event-capacity" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" value="100">`;
+        if (capacityHint) capacityHint.innerText = "新建活动，填入初始化总释放票数。";
+        
+        if (eventStats) eventStats.style.display = "none";
+        if (recordsView) recordsView.style.display = "none";
+        if (detailPanel) detailPanel.style.display = "block";
+        if (listContainer) listContainer.style.display = "none";
+    };
+
+    const openEditPanel = (ev) => {
+        if (editEventId) editEventId.value = ev.slot_id;
+        if (editEventSlotId) {
+            editEventSlotId.value = ev.slot_id;
+            editEventSlotId.disabled = true;
+        }
+        if (editEventName) editEventName.value = ev.event_name;
+        if (editEventDesc) editEventDesc.value = ev.description;
+        
+        if (labelForCapacity) labelForCapacity.innerHTML = `有效票数增减: <input type="number" id="edit-event-capacity" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" value="0">`;
+        if (capacityHint) capacityHint.innerText = "增发票数填正数，削减票数填负数，注意剩余票数会同步增减。由于已有票数不支持直接重写覆盖。";
+        
+        if (eventDesc) eventDesc.innerText = ev.description;
+        if (eventStockInfo) eventStockInfo.innerText = `总容量：${ev.total_capacity} | 剩余可购：${ev.remaining_stock}`;
+        if (eventStats) eventStats.style.display = "block";
+        
+        renderRecords(ev.successful_bookings);
+        if (recordsView) recordsView.style.display = "block";
+        if (detailPanel) detailPanel.style.display = "block";
+        if (listContainer) listContainer.style.display = "none";
+    };
+
+    const renderRecords = (bookings) => {
+        if (!recordsContainer) return;
+        recordsContainer.innerHTML = "";
+        if (bookings && bookings.length > 0) {
+            const sorted = bookings.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            sorted.forEach((record, index) => {
+                const li = document.createElement("li");
+                li.className = "record-item";
+                li.innerHTML = `
+                    <span><strong>No.${index+1}</strong> 用户: <span style="color:#2196f3">${record.user_id}</span> </strong> 凭证号: <span style="font-size:0.85em;color:#aaa">${record.voucher}</span></span>
+                    <span class="timestamp">${record.timestamp}</span>
+                `;
+                recordsContainer.appendChild(li);
+            });
+        } else {
+            recordsContainer.innerHTML = '<li class="record-item" style="color: #999;">暂无抢票成功记录...</li>';
+        }
+    };
+
+    if(btnPublishEvent) {
+        btnPublishEvent.onclick = async () => {
+            const mode = editEventId ? editEventId.value : "";
+            const slot_id = editEventSlotId ? editEventSlotId.value : "";
+            const name = editEventName ? editEventName.value : "";
+            const desc = editEventDesc ? editEventDesc.value : "";
+            // get currently rendered capacity input
+            const capacityInput = document.getElementById("edit-event-capacity");
+            const capValue = capacityInput ? (parseInt(capacityInput.value) || 0) : 0;
+
+            if (!slot_id || !name) {
+                alert("请填写完整的活动ID与名称！");
                 return;
             }
-            
-            const eventName = editEventName.value.trim();
-            const desc = editEventDesc.value.trim();
-            const capacity = parseInt(editEventCapacity.value, 10);
-            
-            if (!eventName || !desc || isNaN(capacity) || capacity <= 0) {
-                alert("请正确填写活动名称、描述及有效票数！");
-                return;
-            }
-            
-            try {
+
+            if (mode === "NEW") {
+                // POST to create
                 const r = await fetch("/api/v1/events/", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({
-                        event_name: eventName,
+                        slot_id: slot_id,
+                        event_name: name,
                         description: desc,
-                        slot_id: slotId,
-                        capacity: capacity
+                        capacity: capValue
                     })
                 });
-                const res = await r.json();
-                if(r.ok) {
-                    alert(res.message || "操作成功！");
-                    fetchDetail();
+                if (r.ok) {
+                    alert("发布成功！");
+                    if (detailPanel) detailPanel.style.display = "none";
+                    if (listContainer) listContainer.style.display = "grid";
+                    loadEvents();
                 } else {
-                    alert("错误：" + (res.detail || JSON.stringify(res)));
+                    const err = await r.json();
+                    alert("发布失败：" + JSON.stringify(err));
                 }
-            } catch (e) {
-                console.error(e);
-                alert("发布或更新异常！");
+            } else {
+                // PATCH to update
+                const payload = {
+                    event_name: name,
+                    description: desc
+                };
+                if (capValue !== 0) {
+                    payload.capacity_delta = capValue;
+                }
+                const r = await fetch(`/api/v1/events/${slot_id}`, {
+                    method: "PATCH",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload)
+                });
+                if (r.ok) {
+                    alert("更改保存成功！");
+                    if (detailPanel) detailPanel.style.display = "none";
+                    if (listContainer) listContainer.style.display = "grid";
+                    loadEvents();
+                } else {
+                    const err = await r.json();
+                    alert("更新失败: " + JSON.stringify(err));
+                }
             }
-        });
+        };
     }
 
+    if(btnClosePanel) {
+        btnClosePanel.onclick = () => {
+            if (detailPanel) detailPanel.style.display = "none";
+            if (listContainer) listContainer.style.display = "grid";
+            loadEvents();
+        };
+    }
+
+    if(btnRefresh) {
+        btnRefresh.onclick = async () => {
+            const slot_id = editEventSlotId ? editEventSlotId.value : "";
+            if(slot_id && slot_id !== "NEW") {
+                try {
+                    const r = await fetch(`/api/v1/events/${slot_id}`);
+                    if(r.ok) {
+                        const ev = await r.json();
+                        openEditPanel(ev);
+                    }
+                } catch(e) { console.error(e); }
+            }
+        };
+    }
+
+    if(btnShowPublish) {
+        btnShowPublish.onclick = openPublishPanel;
+    }
 }
 
 if (document.readyState === "loading") {
