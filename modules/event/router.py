@@ -52,10 +52,17 @@ async def seckill_event_ticket(request: EventTicketRequest):
         await redis.hset(f"user_tickets:{request.user_id}", request.slot_id, json.dumps(ticket_info))
         raise HTTPException(status_code=400, detail="手慢了，该时段资源已被抢空！")
     
+    # 极速抢占成功！立刻发放凭证并修改用户信息中的记录，实现秒杀反馈实时同步
+    import uuid
+    voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
+    ticket_info["status"] = "抢票成功"
+    ticket_info["voucher"] = voucher
+    await redis.hset(f"user_tickets:{request.user_id}", request.slot_id, json.dumps(ticket_info))
+
     # 异步推入队列做假装落库的耗时操作
-    confirm_booking_task.delay(request.user_id, request.resource_id, request.slot_id)
+    confirm_booking_task.delay(request.user_id, request.resource_id, request.slot_id, voucher)
     return EventTicketResponse(
-        status="processing", 
-        message="抢订请求已接收，正在排队落库生成凭证...", 
+        status="success", 
+        message=f"抢占成功！您的活动凭证为: {voucher}，已下发发至档案中心。", 
         slot_id=request.slot_id
     )

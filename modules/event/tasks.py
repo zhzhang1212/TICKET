@@ -17,7 +17,7 @@ celery_app = Celery(
 sync_redis = redis.Redis.from_url("redis://localhost:6379/1", decode_responses=True)
 
 @celery_app.task(bind=True)
-def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str):
+def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, voucher: str):
     """
     专门的 Worker 进程。在此执行 DB 的 Insert 事务假动作。
     """
@@ -27,12 +27,11 @@ def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str):
         # ⚠️ 这里模拟数据库由于存在磁盘寻道时间、唯一索引校验导致的耗时 (2秒)
         time.sleep(2)
         
-        # 成功落库生成凭证号
-        voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
+        # 将传入的凭证执行落库确认 (由于路由端已经修改了Redis状态，这里只需要走DB假动作+PubSub消息)
         ticket_info = {
             "event_name": resource_id,
             "slot_id": slot_id,
-            "status": "抢票成功",
+            "status": "抢票落库成功",
             "voucher": voucher
         }
         sync_redis.hset(f"user_tickets:{user_id}", slot_id, json.dumps(ticket_info))
