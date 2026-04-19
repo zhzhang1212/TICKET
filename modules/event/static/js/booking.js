@@ -1,4 +1,4 @@
-import { WebSocketManager } from "/static/js/core/ws.js";
+import { WebSocketManager } from "/static/js/core/ws.js?t=1";
 
 const WS_URL = !!location.hostname ? `ws://${location.host}/api/v1/ws` : null; 
 let wsManager = null;
@@ -14,7 +14,7 @@ const username = userSession.username;
 let currentEventId = "";
 let currentEventName = "";
 
-document.addEventListener("DOMContentLoaded", () => {
+function initBooking() {
     const statusMsg = document.getElementById("status-msg");
     const initBtn = document.getElementById("btn-init");
     const bookBtn = document.getElementById("btn-book");
@@ -79,4 +79,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         setTimeout(() => bookBtn.disabled = false, 1000);
     });
-});
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initBooking);
+} else {
+    initBooking();
+}

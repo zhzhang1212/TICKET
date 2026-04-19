@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>活动秒杀服务</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
@@ -45,7 +48,9 @@
         </div>
     </div>
 
-    <!-- 模块化引入 ES6 脚本 -->
-    <script type="module" src="/static/event/js/booking.js"></script>
+    <!-- 模块化引入 ES6 脚本 (使用动态 import 防止缓存旧版本) -->
+    <script type="module">
+        import("/static/event/js/booking.js?t=" + new Date().getTime());
+    </script>
 </body>
 </html>
