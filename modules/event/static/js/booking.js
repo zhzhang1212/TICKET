@@ -16,7 +16,6 @@ let currentEventName = "";
 
 function initBooking() {
     const statusMsg = document.getElementById("status-msg");
-    const initBtn = document.getElementById("btn-init");
     const bookBtn = document.getElementById("btn-book");
     const detailPanel = document.getElementById("activity-detail");
     const detailTitle = document.getElementById("detail-title");
@@ -72,32 +71,6 @@ function initBooking() {
         });
     });
 
-    initBtn.addEventListener("click", async () => {
-        if (!currentEventId) return;
-        try {
-            const descDict = {
-                "concert_2026": "某明星的2026春季校园巡演专场，超级火热不容错过！",
-                "singing_contest": "校级年度十佳歌手争霸赛巅峰之战决赛门票！"
-            };
-            const postData = {
-                event_name: currentEventName,
-                description: descDict[currentEventId] || "精彩活动即将开始！",
-                slot_id: currentEventId,
-                capacity: 3
-            };
-            
-            const r = await fetch("/api/v1/events", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(postData)
-            });
-            const res = await r.json();
-            alert(res.message);
-            await fetchEventDetail(currentEventId); // Auto refresh
-        } catch (e) {
-            console.error("创建失败", e);
-        }
-    });
 
     bookBtn.addEventListener("click", async () => {
         if (!currentEventId) return;

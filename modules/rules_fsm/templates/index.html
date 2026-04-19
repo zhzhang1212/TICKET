@@ -60,6 +60,17 @@
                 <div style="margin-top: 5px;">🔥 <span id="event-stock-info"></span></div>
             </div>
 
+            <!-- Add Admin Edit Controls here -->
+            <div id="admin-editor" style="margin-bottom: 20px; padding: 15px; border: 1px dashed #2196f3; background: #fafafa; border-radius: 8px;">
+                <h4 style="margin-top:0; color: #2196f3;">⚙️ 发行与管理编辑</h4>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <label>活动名称: <input type="text" id="edit-event-name" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"></label>
+                    <label>活动描述: <textarea id="edit-event-desc" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" rows="3"></textarea></label>
+                    <label>有效票数: <input type="number" id="edit-event-capacity" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" value="0"></label>
+                    <button id="btn-publish-event" style="padding: 8px 15px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:bold; margin-top:5px;">🚀 确认发布 / 更新活动</button>
+                </div>
+            </div>
+
             <h4>📝 抢票首尾时间榜 (按提交时间先后列序)</h4>
             <ul id="records-container" class="record-list">
                 <li class="record-item" style="color: #999;">请先选择并加载活动实体...</li>

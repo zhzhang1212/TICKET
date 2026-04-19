@@ -7,6 +7,11 @@ function initFsmPanel() {
     const eventStockInfo = document.getElementById("event-stock-info");
     const recordsContainer = document.getElementById("records-container");
 
+    const editEventName = document.getElementById("edit-event-name");
+    const editEventDesc = document.getElementById("edit-event-desc");
+    const editEventCapacity = document.getElementById("edit-event-capacity");
+    const btnPublishEvent = document.getElementById("btn-publish-event");
+
     // 点击大盘票务管理卡片展开详情面板
     if(btnTicketMgr){
         btnTicketMgr.addEventListener("click", () => {
@@ -27,6 +32,10 @@ function initFsmPanel() {
                 const data = await r.json();
                 eventDesc.innerText = data.description || "【暂无介绍】";
                 eventStockInfo.innerText = `有效票数：${data.total_capacity} | 剩余票数：${data.remaining_stock}`;
+                
+                if (editEventName) editEventName.value = data.event_name || "";
+                if (editEventDesc) editEventDesc.value = data.description || "";
+                if (editEventCapacity) editEventCapacity.value = data.total_capacity || 0;
                 
                 recordsContainer.innerHTML = "";
                 if (data.successful_bookings && data.successful_bookings.length > 0) {
@@ -58,6 +67,49 @@ function initFsmPanel() {
 
     if(btnRefresh) btnRefresh.addEventListener("click", fetchDetail);
     if(eventSelector) eventSelector.addEventListener("change", fetchDetail);
+
+    if (btnPublishEvent) {
+        btnPublishEvent.addEventListener("click", async () => {
+            const slotId = eventSelector.value;
+            if (!slotId) {
+                alert("请先选择要操作的活动！");
+                return;
+            }
+            
+            const eventName = editEventName.value.trim();
+            const desc = editEventDesc.value.trim();
+            const capacity = parseInt(editEventCapacity.value, 10);
+            
+            if (!eventName || !desc || isNaN(capacity) || capacity <= 0) {
+                alert("请正确填写活动名称、描述及有效票数！");
+                return;
+            }
+            
+            try {
+                const r = await fetch("/api/v1/events/", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        event_name: eventName,
+                        description: desc,
+                        slot_id: slotId,
+                        capacity: capacity
+                    })
+                });
+                const res = await r.json();
+                if(r.ok) {
+                    alert(res.message || "操作成功！");
+                    fetchDetail();
+                } else {
+                    alert("错误：" + (res.detail || JSON.stringify(res)));
+                }
+            } catch (e) {
+                console.error(e);
+                alert("发布或更新异常！");
+            }
+        });
+    }
+
 }
 
 if (document.readyState === "loading") {
