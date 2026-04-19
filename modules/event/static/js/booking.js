@@ -60,16 +60,52 @@ function initBooking() {
         }
     };
 
-    document.querySelectorAll(".activity-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            currentEventId = e.target.dataset.id;
-            currentEventName = e.target.dataset.name;
-            detailTitle.innerText = `🎫 ${currentEventName}`;
-            detailPanel.style.display = "block";
-            statusMsg.innerText = "";
-            await fetchEventDetail(currentEventId);
-        });
-    });
+    const dynamicEventsContainer = document.getElementById("dynamic-events-container");
+
+    const loadAllEvents = async () => {
+        try {
+            const r = await fetch("/api/v1/events/");
+            if (r.ok) {
+                const events = await r.json();
+                if (dynamicEventsContainer) {
+                    dynamicEventsContainer.innerHTML = "";
+                    if (events.length === 0) {
+                        dynamicEventsContainer.innerHTML = '<span style="color:#888;">暂无进行中的活动...</span>';
+                        return;
+                    }
+                    const colors = ["#e91e63", "#9c27b0", "#2196f3", "#ff9800", "#009688"];
+                    events.forEach((ev, idx) => {
+                        const btn = document.createElement("button");
+                        btn.className = "activity-btn";
+                        btn.dataset.id = ev.slot_id;
+                        btn.dataset.name = ev.event_name;
+                        btn.style.background = colors[idx % colors.length];
+                        btn.style.color = "white";
+                        btn.innerText = `🎫 ${ev.event_name || ev.slot_id}`;
+                        
+                        btn.addEventListener("click", async () => {
+                            currentEventId = ev.slot_id;
+                            currentEventName = ev.event_name || ev.slot_id;
+                            detailTitle.innerText = `🎫 ${currentEventName}`;
+                            detailPanel.style.display = "block";
+                            statusMsg.innerText = "";
+                            await fetchEventDetail(currentEventId);
+                        });
+                        
+                        dynamicEventsContainer.appendChild(btn);
+                    });
+                }
+            } else {
+                if (dynamicEventsContainer) dynamicEventsContainer.innerHTML = '<span style="color:red;">获取活动大厅失败</span>';
+            }
+        } catch (e) {
+            console.error("加载活动列表异常", e);
+            if (dynamicEventsContainer) dynamicEventsContainer.innerHTML = '<span style="color:red;">网络请求加载失败...</span>';
+        }
+    };
+    
+    // 初始化活动列表
+    loadAllEvents();
 
 
     bookBtn.addEventListener("click", async () => {
