@@ -37,36 +37,39 @@ async def seckill_event_ticket(request: EventTicketRequest):
     slot_key = f"slot_stock:{request.slot_id}"
     
     import uuid
-    record_id = uuid.uuid4().hex
+    from datetime import datetime
+    
+    # 统一使用一个凭证号作为记录ID
+    voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # 极速建立等待状态到用户凭证队列
     ticket_info = {
         "event_name": request.resource_id,
         "slot_id": request.slot_id,
         "status": "排队等待中...",
-        "voucher": "-"
+        "voucher": voucher,
+        "timestamp": timestamp
     }
-    await redis.hset(f"user_tickets:{request.user_id}", record_id, json.dumps(ticket_info))
+    await redis.hset(f"user_tickets:{request.user_id}", voucher, json.dumps(ticket_info))
     
     # 极速预扣
     success = await redis.eval(LUA_DECR_SCRIPT, 1, slot_key)
     if not success:
         # 秒杀失败，立刻把状态置为已失败
         ticket_info["status"] = "失败 (已售罄)"
-        await redis.hset(f"user_tickets:{request.user_id}", record_id, json.dumps(ticket_info))
+        await redis.hset(f"user_tickets:{request.user_id}", voucher, json.dumps(ticket_info))
         raise HTTPException(status_code=400, detail="手慢了，该时段资源已被抢空！")
     
-    # 极速抢占成功！立刻发放凭证并修改用户信息中的记录
-    voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
+    # 极速抢占成功！修改状态
     ticket_info["status"] = "抢票成功"
-    ticket_info["voucher"] = voucher
-    await redis.hset(f"user_tickets:{request.user_id}", record_id, json.dumps(ticket_info))
+    await redis.hset(f"user_tickets:{request.user_id}", voucher, json.dumps(ticket_info))
 
-    # 异步推入队列做假装落库的耗时操作 (传record_id方便更新)
-    confirm_booking_task.delay(request.user_id, request.resource_id, request.slot_id, voucher, record_id)
+    # 异步推入队列做假装落库的耗时操作 (仅传voucher作为唯一凭证)
+    confirm_booking_task.delay(request.user_id, request.resource_id, request.slot_id, voucher, timestamp)
     
     return EventTicketResponse(
         status="success", 
-        message=f"秒杀队列已记录！凭证：{voucher}。请留意档案中心的最终落库状态。",
+        message=f"秒杀队列已记录！凭证：{voucher} ({timestamp})。请留意档案中心的最终落库状态。",
         slot_id=request.slot_id
     )

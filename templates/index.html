@@ -84,7 +84,8 @@
                         <div style="border-left: 4px solid ${passColor}; padding-left: 10px; margin-bottom: 12px; background: #fdfdfd; padding: 10px;">
                             <strong>${t.event_name}</strong> [${t.slot_id}]<br>
                             👉 状态: <span style="color:${passColor}; font-weight:bold;">${t.status}</span><br>
-                            👉 凭证: <span style="font-family:monospace;">${t.voucher}</span>
+                            👉 凭证: <span style="font-family:monospace;">${t.voucher}</span><br>
+                            ${t.timestamp ? `👉 时间: <span style="font-family:monospace; color:#888;">${t.timestamp}</span>` : ''}
                         </div>
                     `;
                 });

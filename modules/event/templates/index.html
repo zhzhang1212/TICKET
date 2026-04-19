@@ -19,14 +19,28 @@
     <div id="app">
         <a href="/" class="back-link">← 返回首页</a>
         <h1 style="color: #2c3e50;">活动秒杀服务体验大厅</h1>
-        <div class="controls">
-            <h3 style="margin-top:0">🎭 第一步：模拟管理员</h3>
-            <button id="btn-init" style="background:#ffc107; color:#333;">点击发布活动 [羽毛球场 test_slot_1] (释出2个坑位)</button>
-        </div>
         
-        <div class="controls">
-            <h3 style="margin-top:0">🧑‍🎓 第二步：模拟学生体验抢夺</h3>
-            <button id="btn-book" style="background:#4caf50; color:white;">⚡ 一键极速抢订！(抢夺 test_slot_1)</button>
+        <div id="activity-list" class="controls">
+            <h3 style="margin-top:0">📢 当前火爆活动列表</h3>
+            <div style="display: flex; gap: 15px;">
+                <button class="activity-btn" data-id="concert_2026" data-name="某明星演唱会 (2026巡演)" style="background:#e91e63; color:white;">🎤 某明星演唱会</button>
+                <button class="activity-btn" data-id="singing_contest" data-name="年度十佳歌手总决赛" style="background:#9c27b0; color:white;">🎶 十佳歌手决赛</button>
+            </div>
+        </div>
+
+        <div id="activity-detail" class="controls" style="display:none; border-left: 5px solid #4caf50;">
+            <h3 style="margin-top:0" id="detail-title">活动详情</h3>
+            <p style="color: #555;">正在查看该特定活动的抢票通道。</p>
+            
+            <div style="margin-top: 15px;">
+                <strong>🎭 管理员操作：</strong>
+                <button id="btn-init" style="background:#ffc107; color:#333; margin-left:10px;">发布此活动 (释出2张票)</button>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <strong>🧑‍🎓 学生抢夺：</strong>
+                <button id="btn-book" style="background:#4caf50; color:white; margin-left:10px;">⚡ 立即抢占该活动！</button>
+            </div>
             <div id="status-msg" style="margin-top:20px; font-size:1.2em; color:#666;"></div>
         </div>
     </div>

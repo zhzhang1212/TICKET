@@ -3,7 +3,6 @@ import { WebSocketManager } from "/static/js/core/ws.js";
 const WS_URL = !!location.hostname ? `ws://${location.host}/api/v1/ws` : null; 
 let wsManager = null;
 
-// 从全局本地存储获取之前 auth/login 存储下来的真实 User ID 模型数据
 const userSession = JSON.parse(localStorage.getItem("campus_user"));
 if (!userSession) {
     alert("登录过期或未验证身份！");
@@ -12,23 +11,37 @@ if (!userSession) {
 const userId = userSession.userId;
 const username = userSession.username;
 
+let currentEventId = "";
+let currentEventName = "";
+
 document.addEventListener("DOMContentLoaded", () => {
     const statusMsg = document.getElementById("status-msg");
     const initBtn = document.getElementById("btn-init");
     const bookBtn = document.getElementById("btn-book");
+    const detailPanel = document.getElementById("activity-detail");
+    const detailTitle = document.getElementById("detail-title");
 
-    // 1. 初始化建立自己身份的长连接
     statusMsg.innerText = `👋 欢迎你: ${username} (${userId})`;
     wsManager = new WebSocketManager(`${WS_URL}/${userId}`);
     wsManager.connect(statusMsg);
 
-    // 2. 模拟管理员下发活动
+    document.querySelectorAll(".activity-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            currentEventId = e.target.dataset.id;
+            currentEventName = e.target.dataset.name;
+            detailTitle.innerText = `🎫 ${currentEventName}`;
+            detailPanel.style.display = "block";
+            statusMsg.innerText = "";
+        });
+    });
+
     initBtn.addEventListener("click", async () => {
+        if (!currentEventId) return;
         try {
             const r = await fetch("/api/v1/events", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({slot_id: "test_slot_1", capacity: 2}) // 设置2个假座位
+                body: JSON.stringify({slot_id: currentEventId, capacity: 2})
             });
             const res = await r.json();
             alert(res.message);
@@ -37,8 +50,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 3. 模拟“点击抢票”
     bookBtn.addEventListener("click", async () => {
+        if (!currentEventId) return;
         bookBtn.disabled = true;
         statusMsg.innerText = "正在进行瞬发网络请求抢占...";
         
@@ -48,18 +61,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
                     user_id: userId,
-                    resource_id: "badminton_court_1",
-                    slot_id: "test_slot_1"
+                    resource_id: currentEventName,
+                    slot_id: currentEventId
                 })
             });
             const res = await r.json();
             if (r.ok) {
-                // 如果 Redis 秒杀阶段没被拦住，代表“排上了队”
-                // 然后就在页面上静静等待前面 wsManager 接收后端的确权推送了！
                 statusMsg.innerText = res.message; 
                 statusMsg.style.color = "blue";
             } else {
-                // Redis 发现满载，没票了，拒绝！
                 const errorStr = typeof res.detail === "string" ? res.detail : JSON.stringify(res.detail);
                 statusMsg.innerText = "❌ 失败: " + errorStr;
                 statusMsg.style.color = "red";
