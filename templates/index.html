@@ -97,9 +97,22 @@
                 });
                 document.getElementById("records-tickets").innerHTML = ticketHtml;
 
-                // 渲染 Rooms / Venues (Space 模块暂未完全连接数据，此处兼容数据展示)
-                document.getElementById("records-rooms").innerHTML = data.rooms.length === 0 ? "暂无空间排期" : data.rooms.map(r => `<p>${r.name}</p>`).join("");
-                document.getElementById("records-venues").innerHTML = data.venues.length === 0 ? "暂无场馆排期" : data.venues.map(v => `<p>${v.name}</p>`).join("");
+                // 学术空间
+                document.getElementById("records-rooms").innerHTML = data.rooms.length === 0
+                    ? "暂无空间排期"
+                    : data.rooms.map(r => {
+                        const info = typeof r === "string" ? JSON.parse(r) : r;
+                        const s = info.actual_start ? new Date(info.actual_start).toLocaleString("zh",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
+                        const e = info.actual_end   ? new Date(info.actual_end).toLocaleTimeString("zh",{hour:"2-digit",minute:"2-digit"}) : "";
+                        return `<p style="margin:4px 0;"><strong>${info.space_name||info.space_id}</strong><br><span style="font-size:0.85em;color:#888;">${s}–${e}</span></p>`;
+                    }).join("");
+                // 体育设施
+                document.getElementById("records-venues").innerHTML = data.venues.length === 0
+                    ? "暂无场馆排期"
+                    : data.venues.map(v => {
+                        const info = typeof v === "string" ? JSON.parse(v) : v;
+                        return `<p style="margin:4px 0;"><strong>${info.space_id}</strong><br><span style="font-size:0.85em;color:#888;">${info.slot_date} ${info.slot_hour}:00</span></p>`;
+                    }).join("");
                 
                 document.getElementById("my-bookings").style.display = "block";
             } catch (e) {

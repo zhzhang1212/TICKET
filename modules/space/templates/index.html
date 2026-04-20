@@ -3,25 +3,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>空间预订服务</title>
+    <title>空间预订 - 智约校园</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
-        .card { padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px;}
-        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #4caf50; text-decoration: none;}
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f6fa; margin: 0; padding: 20px; color: #333; }
+
+        .back-link { display: inline-block; margin-bottom: 16px; font-weight: bold; color: #2196f3; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+
+        h1 { color: #1a237e; margin-bottom: 6px; }
+        .subtitle { color: #666; margin-bottom: 24px; font-size: 0.95em; }
+
+        /* Tab */
+        .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+        .tab-btn {
+            padding: 10px 22px; border: none; background: none; cursor: pointer;
+            font-size: 1em; color: #666; border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: 0.2s; border-radius: 4px 4px 0 0;
+        }
+        .tab-btn:hover { background: #e3f2fd; color: #1565c0; }
+        .tab-btn.active { color: #1565c0; border-bottom-color: #1565c0; font-weight: bold; background: #e3f2fd; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* Cards */
+        .card {
+            background: #fff; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 20px; margin-bottom: 16px;
+        }
+        .card-title { font-size: 1.05em; font-weight: bold; color: #1a237e; margin: 0 0 12px; }
+
+        /* Space list */
+        .space-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+        .space-card {
+            border: 2px solid #e0e0e0; border-radius: 8px; padding: 14px 16px;
+            cursor: pointer; transition: 0.2s; background: #fff;
+        }
+        .space-card:hover { border-color: #2196f3; background: #e3f2fd; }
+        .space-card.selected { border-color: #1565c0; background: #e3f2fd; }
+        .space-card h3 { margin: 0 0 6px; font-size: 1em; color: #1a237e; }
+        .space-card p { margin: 0; font-size: 0.88em; color: #666; }
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 0.78em; font-weight: bold; margin-top: 6px;
+        }
+        .badge-cap { background: #e8f5e9; color: #2e7d32; }
+        .badge-comb { background: #fff3e0; color: #e65100; }
+
+        /* Form */
+        .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
+        label { font-size: 0.88em; color: #555; font-weight: bold; }
+        input[type="datetime-local"], input[type="date"] {
+            padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;
+            font-size: 0.95em; width: 100%; outline: none; transition: 0.2s;
+        }
+        input[type="datetime-local"]:focus, input[type="date"]:focus { border-color: #2196f3; }
+
+        /* Buttons */
+        .btn {
+            padding: 9px 20px; border: none; border-radius: 6px; cursor: pointer;
+            font-size: 0.95em; font-weight: bold; transition: 0.2s; white-space: nowrap;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { background: #ccc !important; color: #888; cursor: not-allowed; opacity: 1; }
+        .btn-primary { background: #1565c0; color: #fff; }
+        .btn-success { background: #2e7d32; color: #fff; }
+        .btn-danger  { background: #c62828; color: #fff; }
+        .btn-outline { background: #fff; color: #1565c0; border: 2px solid #1565c0; }
+        .btn-sm { padding: 5px 12px; font-size: 0.85em; }
+
+        /* Slot grid */
+        .slot-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .slot-cell {
+            width: 72px; padding: 8px 0; text-align: center; border-radius: 6px;
+            border: 2px solid #e0e0e0; cursor: pointer; font-size: 0.88em; font-weight: bold;
+            transition: 0.15s; user-select: none;
+        }
+        .slot-cell.available { background: #e8f5e9; border-color: #a5d6a7; color: #2e7d32; }
+        .slot-cell.available:hover { background: #c8e6c9; border-color: #66bb6a; }
+        .slot-cell.selected  { background: #1565c0; border-color: #1565c0; color: #fff; }
+        .slot-cell.taken     { background: #fce4ec; border-color: #ef9a9a; color: #c62828; cursor: not-allowed; }
+        .slot-label          { font-size: 0.75em; color: #888; margin-top: 2px; }
+
+        /* Availability result */
+        .avail-result { padding: 10px 14px; border-radius: 6px; font-size: 0.92em; font-weight: bold; margin-top: 10px; }
+        .avail-ok  { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #43a047; }
+        .avail-no  { background: #fce4ec; color: #c62828; border-left: 4px solid #e53935; }
+
+        /* Booking records */
+        .booking-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 14px; border-radius: 6px; border-left: 4px solid #2196f3;
+            background: #f5f9ff; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;
+        }
+        .booking-item.sports { border-left-color: #4caf50; background: #f5fff5; }
+        .booking-info { font-size: 0.9em; line-height: 1.6; }
+        .booking-info strong { color: #1a237e; }
+
+        /* Toast */
+        #toast {
+            position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+            padding: 12px 24px; border-radius: 8px; font-size: 0.95em; font-weight: bold;
+            color: #fff; z-index: 9999; opacity: 0; transition: opacity 0.3s;
+            pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+        #toast.show { opacity: 1; }
+        #toast.success { background: #2e7d32; }
+        #toast.error   { background: #c62828; }
+        #toast.info    { background: #1565c0; }
+
+        /* Combined booking selector */
+        .combine-check { display: flex; align-items: center; gap: 6px; font-size: 0.9em; cursor: pointer; }
+        .combine-check input { width: 16px; height: 16px; cursor: pointer; }
+
+        .section-hint { font-size: 0.85em; color: #888; margin-bottom: 12px; }
+
+        @media (max-width: 600px) {
+            .form-row { flex-direction: column; }
+            .space-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-    <div id="app">
-        <a href="/" class="back-link">← 返回首页</a>
-        <h1 style="color: #2c3e50;">空间预订服务体验大厅</h1>
+    <a href="/" class="back-link" aria-label="返回首页">← 返回首页</a>
+    <h1>🏫 空间预订服务</h1>
+    <p class="subtitle">学术空间预约 &amp; 体育设施预约</p>
+
+    <div class="tabs" role="tablist">
+        <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-academic" id="tbtn-academic" onclick="switchTab('academic')">🏛 学术空间</button>
+        <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-sports"   id="tbtn-sports"   onclick="switchTab('sports')">🏸 体育设施</button>
+        <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-mybookings" id="tbtn-mybookings" onclick="switchTab('mybookings')">📋 我的预约</button>
+    </div>
+
+    <!-- ── 学术空间 Tab ──────────────────────────────────────── -->
+    <div id="tab-academic" class="tab-panel active" role="tabpanel" aria-labelledby="tbtn-academic">
         <div class="card">
-            <h3>🏫 模拟常规空间预订</h3>
-            <p>基于五分钟缓冲策略的空间申请功能入口。</p>
-            <p style="color:#888;">(开发中...)</p>
+            <p class="card-title">第 1 步：选择空间</p>
+            <p class="section-hint">点击下方空间卡片选择目标场地</p>
+            <div id="academic-space-grid" class="space-grid" aria-label="学术空间列表">
+                <span style="color:#aaa;">加载中...</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <p class="card-title">第 2 步：选择时间并查询可用性</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ac-start">预约开始时间</label>
+                    <input type="datetime-local" id="ac-start" step="300" aria-required="true">
+                </div>
+                <div class="form-group">
+                    <label for="ac-end">预约结束时间</label>
+                    <input type="datetime-local" id="ac-end" step="300" aria-required="true">
+                </div>
+                <button class="btn btn-outline" onclick="checkAcademicAvailability()" aria-label="查询可用性">查询可用性</button>
+            </div>
+            <div id="ac-avail-result" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="card">
+            <p class="card-title">第 3 步：确认预约</p>
+            <p class="section-hint" id="ac-confirm-hint">请先完成上方两步</p>
+            <button class="btn btn-primary" id="btn-book-academic" disabled onclick="bookAcademic()" aria-label="确认预约学术空间">确认预约</button>
         </div>
     </div>
-    <script type="module" src="/static/space/js/space.js"></script>
+
+    <!-- ── 体育设施 Tab ──────────────────────────────────────── -->
+    <div id="tab-sports" class="tab-panel" role="tabpanel" aria-labelledby="tbtn-sports">
+        <div class="card">
+            <p class="card-title">第 1 步：选择日期</p>
+            <div class="form-row">
+                <div class="form-group" style="max-width:220px;">
+                    <label for="sp-date">预约日期</label>
+                    <input type="date" id="sp-date" aria-required="true">
+                </div>
+                <button class="btn btn-outline" onclick="loadSportsView()" aria-label="加载场地时段">加载场地时段</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <p class="card-title">第 2 步：选择场地和时段</p>
+            <p class="section-hint">
+                单场地：点击任意时段格子即可。
+                <strong>组合预约</strong>（联赛多场地）：勾选多个场地后，再点击共同可用的时段。
+            </p>
+            <div id="sports-space-list" aria-label="体育设施列表">
+                <span style="color:#aaa;">请先选择日期并点击「加载场地时段」</span>
+            </div>
+        </div>
+
+        <div class="card" id="sp-confirm-card" style="display:none;">
+            <p class="card-title">第 3 步：确认预约</p>
+            <div id="sp-confirm-info" style="font-size:0.92em; color:#444; margin-bottom:12px;"></div>
+            <button class="btn btn-success" id="btn-book-sports" onclick="bookSports()" aria-label="确认预约体育设施">确认预约</button>
+            <button class="btn btn-outline" style="margin-left:8px;" onclick="clearSportsSelection()" aria-label="清除选择">清除选择</button>
+        </div>
+    </div>
+
+    <!-- ── 我的预约 Tab ──────────────────────────────────────── -->
+    <div id="tab-mybookings" class="tab-panel" role="tabpanel" aria-labelledby="tbtn-mybookings">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <p class="card-title" style="margin:0;">🏛 学术空间预约</p>
+                <button class="btn btn-outline btn-sm" onclick="loadMyBookings()" aria-label="刷新预约记录">刷新</button>
+            </div>
+            <div id="my-academic-bookings"><span style="color:#aaa;">加载中...</span></div>
+        </div>
+        <div class="card">
+            <p class="card-title">🏸 体育设施预约</p>
+            <div id="my-sports-bookings"><span style="color:#aaa;">加载中...</span></div>
+        </div>
+    </div>
+
+    <div id="toast" role="alert" aria-live="assertive"></div>
+
+    <script type="module">
+        import("/static/space/js/space.js?t=" + new Date().getTime());
+    </script>
 </body>
 </html>

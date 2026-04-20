@@ -60,11 +60,60 @@ async def fsm_page(request: Request):
 
 @app.on_event("startup")
 async def startup_event():
-    # 初始化 Redis、DB 连接池等
+    import logging
     from core.redis_db import init_redis
     await init_redis()
+    try:
+        from core.database import init_db
+        await init_db()
+        await _seed_spaces()
+    except Exception as e:
+        logging.warning(f"[DB] PostgreSQL 未就绪，空间预订模块暂不可用：{e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     from core.redis_db import close_redis
     await close_redis()
+
+
+async def _seed_spaces():
+    """首次启动时写入演示用的场地数据，已存在则跳过。"""
+    from core.database import AsyncSessionLocal
+    from core.models import Space, SpaceType
+    from sqlalchemy import select
+
+    demo_spaces = [
+        # 学术空间
+        Space(space_id="room_a101", name="A101 研讨室", space_type=SpaceType.academic,
+              capacity=8, is_combinable=False, description="8人小型研讨室，配备投影仪"),
+        Space(space_id="room_a102", name="A102 研讨室", space_type=SpaceType.academic,
+              capacity=8, is_combinable=False, description="8人小型研讨室，配备白板"),
+        Space(space_id="room_b201", name="B201 会议室", space_type=SpaceType.academic,
+              capacity=20, is_combinable=False, description="20人中型会议室，配备视频会议系统"),
+        Space(space_id="room_b202", name="B202 会议室", space_type=SpaceType.academic,
+              capacity=20, is_combinable=False, description="20人中型会议室，配备投影仪"),
+        Space(space_id="room_c301", name="C301 大型报告厅", space_type=SpaceType.academic,
+              capacity=60, is_combinable=False, description="60人报告厅，适合讲座与答辩"),
+        # 体育设施
+        Space(space_id="badminton_1", name="羽毛球场 1 号", space_type=SpaceType.sports,
+              capacity=4, is_combinable=True, description="标准羽毛球场"),
+        Space(space_id="badminton_2", name="羽毛球场 2 号", space_type=SpaceType.sports,
+              capacity=4, is_combinable=True, description="标准羽毛球场"),
+        Space(space_id="badminton_3", name="羽毛球场 3 号", space_type=SpaceType.sports,
+              capacity=4, is_combinable=True, description="标准羽毛球场"),
+        Space(space_id="badminton_4", name="羽毛球场 4 号", space_type=SpaceType.sports,
+              capacity=4, is_combinable=True, description="标准羽毛球场"),
+        Space(space_id="basketball_1", name="篮球场 A 区", space_type=SpaceType.sports,
+              capacity=10, is_combinable=True, description="标准篮球半场"),
+        Space(space_id="basketball_2", name="篮球场 B 区", space_type=SpaceType.sports,
+              capacity=10, is_combinable=True, description="标准篮球半场"),
+    ]
+
+    async with AsyncSessionLocal() as session:
+        for space in demo_spaces:
+            exists = await session.scalar(
+                select(Space).where(Space.space_id == space.space_id)
+            )
+            if not exists:
+                session.add(space)
+        await session.commit()

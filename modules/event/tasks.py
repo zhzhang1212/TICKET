@@ -2,17 +2,19 @@ import time
 import json
 import uuid
 import logging
+import os
 from celery import Celery
 import redis
-import asyncio
+
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 
 celery_app = Celery(
     "booking_worker",
-    broker="redis://localhost:6379/2",
-    backend="redis://localhost:6379/3"
+    broker=f"redis://{REDIS_HOST}:6379/2",
+    backend=f"redis://{REDIS_HOST}:6379/3"
 )
 
-sync_redis = redis.Redis.from_url("redis://localhost:6379/1", decode_responses=True)
+sync_redis = redis.Redis.from_url(f"redis://{REDIS_HOST}:6379/1", decode_responses=True)
 
 @celery_app.task(bind=True)
 def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, order_id: str, voucher: str, timestamp: str):
