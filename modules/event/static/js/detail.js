@@ -14,6 +14,8 @@ const username = userSession.username;
 const urlParams = new URLSearchParams(window.location.search);
 let currentEventId = urlParams.get('slot_id') || "";
 let currentEventName = currentEventId;
+let currentVoucher = "";
+let countdownTimer = null;
 
 function initDetail() {
     const statusMsg = document.getElementById("status-msg");
@@ -23,6 +25,31 @@ function initDetail() {
     const eventDesc = document.getElementById("event-desc");
     const eventTotal = document.getElementById("event-total");
     const eventStock = document.getElementById("event-stock");
+    
+    // Add payment zone dynamically
+    const paymentZone = document.createElement("div");
+    paymentZone.id = "payment-zone";
+    paymentZone.style.display = "none";
+    paymentZone.style.marginTop = "20px";
+    paymentZone.style.padding = "15px";
+    paymentZone.style.border = "1px solid #ff9800";
+    paymentZone.style.borderRadius = "8px";
+    paymentZone.style.backgroundColor = "#fff3e0";
+    paymentZone.innerHTML = `
+        <h3 style="color:#e65100; margin-top:0;">💳 待支付订单</h3>
+        <p>凭证号：<strong id="pay-voucher"></strong></p>
+        <p style="color:red; font-weight:bold;">剩余支付时间：<span id="pay-countdown">05:00</span></p>
+        <div style="margin-top: 15px;">
+            <button id="btn-pay" style="background:#4caf50; color:white; margin-right:10px;">立即模拟支付</button>
+            <button id="btn-cancel" style="background:#f44336; color:white;">手动取消订单</button>
+        </div>
+    `;
+    bookBtn.parentNode.parentNode.appendChild(paymentZone);
+
+    const btnPay = document.getElementById("btn-pay");
+    const btnCancel = document.getElementById("btn-cancel");
+    const payCountdown = document.getElementById("pay-countdown");
+    const payVoucher = document.getElementById("pay-voucher");
 
     const fetchEventDetail = async (slotId) => {
         try {
@@ -31,7 +58,6 @@ function initDetail() {
                 const data = await r.json();
                 currentEventName = data.event_name || slotId;
                 detailTitle.innerText = `🎫 ${currentEventName}`;
-                
                 eventDesc.innerText = data.description || "无描述信息。";
                 eventTotal.innerText = data.total_capacity;
                 eventStock.innerText = data.remaining_stock;
@@ -62,17 +88,41 @@ function initDetail() {
     wsManager.socket.onmessage = (event) => {
         if (oldOnMessage) oldOnMessage(event);
         const data = JSON.parse(event.data);
-        if (data.status === "success" && currentEventId) {
+        if ((data.status === "success" || data.status === "timeout") && currentEventId) {
             setTimeout(() => {
                 fetchEventDetail(currentEventId);
             }, 500);
+            
+            if (data.status === "timeout") {
+                paymentZone.style.display = "none";
+                bookBtn.style.display = "inline-block";
+                bookBtn.disabled = false;
+                if (countdownTimer) clearInterval(countdownTimer);
+            }
         }
     };
+
+    function startCountdown() {
+        let timeLeft = 300; // 5 minutes
+        payCountdown.innerText = "05:00";
+        if (countdownTimer) clearInterval(countdownTimer);
+        
+        countdownTimer = setInterval(() => {
+            timeLeft--;
+            let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            let s = (timeLeft % 60).toString().padStart(2, '0');
+            payCountdown.innerText = `${m}:${s}`;
+            if (timeLeft <= 0) {
+                clearInterval(countdownTimer);
+            }
+        }, 1000);
+    }
 
     bookBtn.addEventListener("click", async () => {
         if (!currentEventId) return;
         bookBtn.disabled = true;
-        statusMsg.innerText = "正在进行瞬发网络请求抢占...";
+        statusMsg.innerText = "正在进行规则校验与预扣库存...";
+        statusMsg.style.color = "#666";
         
         try {
             const r = await fetch("/api/v1/events/seckill", {
@@ -88,16 +138,96 @@ function initDetail() {
             if (r.ok) {
                 statusMsg.innerText = res.message; 
                 statusMsg.style.color = "blue";
+                currentVoucher = res.voucher;
+                
+                // Show payment zone
+                bookBtn.style.display = "none";
+                paymentZone.style.display = "block";
+                payVoucher.innerText = currentVoucher;
+                startCountdown();
             } else {
                 const errorStr = typeof res.detail === "string" ? res.detail : JSON.stringify(res.detail);
                 statusMsg.innerText = "❌ 失败: " + errorStr;
                 statusMsg.style.color = "red";
+                setTimeout(() => bookBtn.disabled = false, 1000);
             }
         } catch (e) {
             statusMsg.innerText = "❌ 网络错误";
+            statusMsg.style.color = "red";
+            setTimeout(() => bookBtn.disabled = false, 1000);
         }
-        setTimeout(() => bookBtn.disabled = false, 1000);
     });
+
+    btnPay.addEventListener("click", async () => {
+        btnPay.disabled = true;
+        btnCancel.disabled = true;
+        statusMsg.innerText = "正在支付中...";
+        try {
+            const r = await fetch("/api/v1/events/pay", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    user_id: userId,
+                    slot_id: currentEventId,
+                    voucher: currentVoucher
+                })
+            });
+            const res = await r.json();
+            if (r.ok) {
+                if (countdownTimer) clearInterval(countdownTimer);
+                paymentZone.style.display = "none";
+                statusMsg.innerText = "✅ 支付成功！正等待落库队列最终出票。";
+                statusMsg.style.color = "green";
+                // Optionally show a button to navigate to history, but the websocket will be enough
+            } else {
+                statusMsg.innerText = "❌ 支付异常: " + (res.detail || "");
+                statusMsg.style.color = "red";
+                btnPay.disabled = false;
+                btnCancel.disabled = false;
+            }
+        } catch (e) {
+            statusMsg.innerText = "❌ 支付网络错误";
+            btnPay.disabled = false;
+            btnCancel.disabled = false;
+        }
+    });
+
+    btnCancel.addEventListener("click", async () => {
+        btnCancel.disabled = true;
+        btnPay.disabled = true;
+        statusMsg.innerText = "正在取消订单...";
+        try {
+            const r = await fetch("/api/v1/events/cancel", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    user_id: userId,
+                    slot_id: currentEventId,
+                    voucher: currentVoucher
+                })
+            });
+            const res = await r.json();
+            if (r.ok) {
+                if (countdownTimer) clearInterval(countdownTimer);
+                paymentZone.style.display = "none";
+                bookBtn.style.display = "inline-block";
+                bookBtn.disabled = false;
+                statusMsg.innerText = "🚫 订单已手动取消，未扣除信誉分。";
+                statusMsg.style.color = "#666";
+                fetchEventDetail(currentEventId); // Refresh stock immediately
+            } else {
+                statusMsg.innerText = "❌ 取消异常: " + (res.detail || "");
+                statusMsg.style.color = "red";
+                btnCancel.disabled = false;
+                btnPay.disabled = false;
+            }
+        } catch (e) {
+            statusMsg.innerText = "❌ 取消网络错误";
+            btnCancel.disabled = false;
+            btnPay.disabled = false;
+        }
+    });
+
 }
 
 if (document.readyState === "loading") {

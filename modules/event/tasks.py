@@ -1,9 +1,10 @@
 import time
 import json
 import uuid
+import logging
 from celery import Celery
 import redis
-import logging
+import asyncio
 
 celery_app = Celery(
     "booking_worker",
@@ -16,7 +17,7 @@ sync_redis = redis.Redis.from_url("redis://localhost:6379/1", decode_responses=T
 @celery_app.task(bind=True)
 def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, voucher: str, timestamp: str):
     """
-    专门的 Worker 进程。在此执行 DB 的 Insert 事务假动作。
+    假库入库动作，用户支付成功后才调用最终落单
     """
     try:
         logging.info(f"==> Worker 开始为 {user_id} 将订单落库...")
@@ -41,7 +42,8 @@ def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, vou
         
         msg = {
             "status": "success", 
-            "msg": f"落库成功（凭证：{voucher}，时间：{timestamp}）"
+            "msg": f"落库成功（凭证：{voucher}，时间：{timestamp}）",
+            "voucher": voucher
         }
         sync_redis.publish(f"notify_{user_id}", json.dumps(msg))
         
@@ -55,3 +57,40 @@ def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, vou
             "timestamp": timestamp
         }
         sync_redis.hset(f"user_tickets:{user_id}", voucher, json.dumps(ticket_info))
+
+
+@celery_app.task(bind=True)
+def payment_timeout_task(self, user_id: str, slot_id: str, voucher: str):
+    """
+    延迟 5 分钟检查支付状态，如果仍然是待支付，则违约扣分并回滚库存
+    """
+    ticket_str = sync_redis.hget(f"user_tickets:{user_id}", voucher)
+    if not ticket_str:
+        return
+        
+    ticket_info = json.loads(ticket_str)
+    if ticket_info.get("status") == "待支付 (请在5分钟内完成)":
+        logging.warning(f"用户 {user_id} 超时未支付凭证 {voucher}，判定违约。")
+        # 1. 状态改变为违约关闭
+        ticket_info["status"] = "超时未支付 (已关闭)"
+        sync_redis.hset(f"user_tickets:{user_id}", voucher, json.dumps(ticket_info))
+        
+        # 2. 库存回滚
+        sync_redis.incr(f"slot_stock:{slot_id}")
+        
+        # 3. 扣除信誉分 10分 (通过同步或重新写redis)
+        score_key = f"user_profile:{user_id}:score"
+        score = sync_redis.get(score_key)
+        if score is None:
+            score = 100
+        else:
+            score = int(score)
+        sync_redis.set(score_key, max(0, score - 10))
+        
+        # 4. 发布通知
+        msg = {
+            "status": "timeout", 
+            "msg": "支付超时，订单已取消，已扣除信誉分 10 分！",
+            "voucher": voucher
+        }
+        sync_redis.publish(f"notify_{user_id}", json.dumps(msg))
