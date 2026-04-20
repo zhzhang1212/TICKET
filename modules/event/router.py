@@ -218,13 +218,13 @@ async def cancel_event_ticket(request: PaymentRequest):
         raise HTTPException(status_code=400, detail="订单当前状态不可手动取消")
         
     cancel_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    ticket_info["status"] = f"已取消 (于 {cancel_time} 取消)"
+    ticket_info["status"] = f"已取消 ({cancel_time})"
     await redis.hset(f"user_tickets:{request.user_id}", request.order_id, json.dumps(ticket_info))
     
     # Increase stock back
     await redis.incr(f"slot_stock:{request.slot_id}")
     
-    return {"message": "订单取消成功，未扣除信誉分。", "order_id": request.order_id}
+    return {"message": "订单取消成功", "order_id": request.order_id}
 
 @router.get("/ticket/{user_id}/{order_id}", summary="【用户接口】获取自己的某笔订单详情")
 async def get_ticket_detail(user_id: str, order_id: str):
