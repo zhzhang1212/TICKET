@@ -36,7 +36,7 @@ function initBooking() {
                             </div>
                             <div style="font-size:0.9em; margin-top:15px; background:#f5f5f5; padding:10px; border-radius:4px; text-align:center;">
                                 <span style="display:block; margin-bottom:5px;">有效票数: <strong>${ev.total_capacity}</strong></span>
-                                <span>剩余抢夺: <strong style="color:#e91e63; font-size:1.1em;">${ev.remaining_stock}</strong></span>
+                                <span>剩余票数: <strong style="color:#e91e63; font-size:1.1em;">${ev.remaining_stock}</strong></span>
                             </div>
                         `;
                         
