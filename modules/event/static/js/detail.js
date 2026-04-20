@@ -21,7 +21,7 @@ function setupActivityClock(info) {
     let startTimeStr = info.start_time || null;
     let endTimeStr = info.end_time || null;
     
-    globalTimer = setInterval(() => {
+    function tick() {
         let isBookable = true;
         let now = new Date();
         
@@ -53,7 +53,7 @@ function setupActivityClock(info) {
         
         if (penaltyRemaining > 0) {
             isBookable = false;
-            penaltyInfo.innerText = "刚刚取消，需等待 " + formatSec(penaltyRemaining) + " 后重试";
+            penaltyInfo.innerText = "由于您刚刚取消了预定，请等待 " + formatSec(penaltyRemaining) + " 后才能再次预定";
             penaltyRemaining--;
         } else {
             penaltyInfo.innerText = "";
@@ -61,7 +61,7 @@ function setupActivityClock(info) {
         
         if (isBookable && info.remaining_stock > 0) {
             bookBtn.disabled = false;
-            bookBtn.style.background = "#ff9800";
+            bookBtn.style.background = "#1ab306";
             bookBtn.innerText = "点击报名/抢票";
         } else {
             bookBtn.disabled = true;
@@ -70,7 +70,10 @@ function setupActivityClock(info) {
                 bookBtn.innerText = "已售罄";
             }
         }
-    }, 1000);
+    }
+    
+    tick(); // Execute immediately once
+    globalTimer = setInterval(tick, 1000);
 }
 
 function formatSec(sec) {
