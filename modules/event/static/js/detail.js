@@ -122,7 +122,7 @@ function initDetail() {
 
     const fetchEventDetail = async (slotId) => {
         try {
-            const r = await fetch(`/api/v1/events/${slotId}`);
+            const r = await fetch(`/api/v1/events/${slotId}?user_id=${userId}`);
             if (r.ok) {
                 const data = await r.json();
                 currentEventName = data.event_name || slotId;
@@ -130,6 +130,7 @@ function initDetail() {
                 eventDesc.innerText = data.description || "无描述信息。";
                 eventTotal.innerText = data.total_capacity;
                 eventStock.innerText = data.remaining_stock;
+                setupActivityClock(data);
             } else {
                 detailTitle.innerText = "活动详情";
                 eventDesc.innerText = "🚨 尚未由管理员发布或获取失败";
@@ -165,7 +166,6 @@ function initDetail() {
             if (data.status === "timeout") {
                 paymentZone.style.display = "none";
                 bookBtn.style.display = "inline-block";
-                bookBtn.disabled = false;
                 if (countdownTimer) clearInterval(countdownTimer);
             }
         }
@@ -218,12 +218,10 @@ function initDetail() {
                 const errorStr = typeof res.detail === "string" ? res.detail : JSON.stringify(res.detail);
                 statusMsg.innerText = "❌ 失败: " + errorStr;
                 statusMsg.style.color = "red";
-                setTimeout(() => bookBtn.disabled = false, 1000);
             }
         } catch (e) {
             statusMsg.innerText = "❌ 网络错误";
             statusMsg.style.color = "red";
-            setTimeout(() => bookBtn.disabled = false, 1000);
         }
     });
 
@@ -282,7 +280,6 @@ function initDetail() {
                 if (countdownTimer) clearInterval(countdownTimer);
                 paymentZone.style.display = "none";
                 bookBtn.style.display = "inline-block";
-                bookBtn.disabled = false;
                 statusMsg.innerText = "订单已手动取消";
                 statusMsg.style.color = "#666";
                 fetchEventDetail(currentEventId); // Refresh stock immediately
