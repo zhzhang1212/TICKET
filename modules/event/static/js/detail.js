@@ -41,7 +41,7 @@ function initDetail() {
         <p style="color:red; font-weight:bold;">剩余支付时间：<span id="pay-countdown">05:00</span></p>
         <div style="margin-top: 15px;">
             <button id="btn-pay" style="background:#4caf50; color:white; margin-right:10px;">立即模拟支付</button>
-            <button id="btn-cancel" style="background:#f44336; color:white;">手动取消订单</button>
+            <button id="btn-cancel" style="background:#f44336; color:white;">取消订单</button>
         </div>
     `;
     bookBtn.parentNode.parentNode.appendChild(paymentZone);
