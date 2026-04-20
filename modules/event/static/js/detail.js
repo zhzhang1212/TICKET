@@ -176,9 +176,11 @@ function initDetail() {
             if (r.ok) {
                 if (countdownTimer) clearInterval(countdownTimer);
                 paymentZone.style.display = "none";
-                statusMsg.innerText = "✅ 支付成功！正等待落库队列最终出票。";
+                statusMsg.innerText = "✅ 支付成功！正等待落库队列最终出票，即将跳转至凭证详情页...";
                 statusMsg.style.color = "green";
-                // Optionally show a button to navigate to history, but the websocket will be enough
+                setTimeout(() => {
+                    window.location.href = `/event/ticket?order_id=${currentOrderId}`;
+                }, 1500);
             } else {
                 statusMsg.innerText = "❌ 支付异常: " + (res.detail || "");
                 statusMsg.style.color = "red";
@@ -212,7 +214,7 @@ function initDetail() {
                 paymentZone.style.display = "none";
                 bookBtn.style.display = "inline-block";
                 bookBtn.disabled = false;
-                statusMsg.innerText = "🚫 订单已手动取消，未扣除信誉分。";
+                statusMsg.innerText = "订单已手动取消";
                 statusMsg.style.color = "#666";
                 fetchEventDetail(currentEventId); // Refresh stock immediately
             } else {
