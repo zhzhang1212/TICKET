@@ -141,7 +141,7 @@ async def update_event(slot_id: str, event: EventUpdate):
 
 
 class EventTicketResponse2(EventTicketResponse):
-    voucher: Optional[str] = None
+    order_id: Optional[str] = None
 
 @router.post("/seckill", response_model=EventTicketResponse2, summary="【用户接口】热门活动的门票抢注")
 async def seckill_event_ticket(request: EventTicketRequest):
@@ -152,43 +152,43 @@ async def seckill_event_ticket(request: EventTicketRequest):
         raise HTTPException(status_code=403, detail="抢票失败：您的信誉分低于80分，不满足规定条件。")
         
     slot_key = f"slot_stock:{request.slot_id}"
-    voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
+    order_id = f"ORD_{uuid.uuid4().hex[:8].upper()}"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     ticket_info = {
         "event_name": request.resource_id,
         "slot_id": request.slot_id,
         "status": "待支付 (请在5分钟内完成)",
-        "voucher": voucher,
+        "order_id": order_id,
         "timestamp": timestamp
     }
-    await redis.hset(f"user_tickets:{request.user_id}", voucher, json.dumps(ticket_info))
+    await redis.hset(f"user_tickets:{request.user_id}", order_id, json.dumps(ticket_info))
     
     success = await redis.eval(LUA_DECR_SCRIPT, 1, slot_key)
     if not success:
         ticket_info["status"] = "失败 (已售罄)"
-        await redis.hset(f"user_tickets:{request.user_id}", voucher, json.dumps(ticket_info))
+        await redis.hset(f"user_tickets:{request.user_id}", order_id, json.dumps(ticket_info))
         raise HTTPException(status_code=400, detail="手慢了，该时段资源已被抢空！")
         
     # start 5 minutes timeout task
-    payment_timeout_task.apply_async(args=[request.user_id, request.slot_id, voucher], countdown=300)
+    payment_timeout_task.apply_async(args=[request.user_id, request.slot_id, order_id], countdown=300)
     
     return EventTicketResponse2(
         status="success", 
         message=f"抢票初步成功！请在5分钟内完成支付。",
         slot_id=request.slot_id,
-        voucher=voucher
+        order_id=order_id
     )
 
 class PaymentRequest(BaseModel):
     user_id: str
     slot_id: str
-    voucher: str
+    order_id: str
 
 @router.post("/pay", summary="【用户接口】确认支付订单")
 async def pay_event_ticket(request: PaymentRequest):
     redis = await get_redis()
-    ticket_str = await redis.hget(f"user_tickets:{request.user_id}", request.voucher)
+    ticket_str = await redis.hget(f"user_tickets:{request.user_id}", request.order_id)
     if not ticket_str:
         raise HTTPException(status_code=404, detail="找不到该笔订单")
         
@@ -196,16 +196,18 @@ async def pay_event_ticket(request: PaymentRequest):
     if ticket_info.get("status") != "待支付 (请在5分钟内完成)":
         raise HTTPException(status_code=400, detail=f"该订单状态为：{ticket_info.get('status')}，不可支付")
         
+    voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
     ticket_info["status"] = "正在入库中..."
-    await redis.hset(f"user_tickets:{request.user_id}", request.voucher, json.dumps(ticket_info))
+    ticket_info["voucher"] = voucher
+    await redis.hset(f"user_tickets:{request.user_id}", request.order_id, json.dumps(ticket_info))
     
-    confirm_booking_task.delay(request.user_id, ticket_info.get("event_name", ""), request.slot_id, request.voucher, ticket_info["timestamp"])
-    return {"message": "支付成功，系统正在安排落库！", "voucher": request.voucher}
+    confirm_booking_task.delay(request.user_id, ticket_info.get("event_name", ""), request.slot_id, request.order_id, voucher, ticket_info["timestamp"])
+    return {"message": "支付成功，系统正在安排落库！", "voucher": voucher}
 
 @router.post("/cancel", summary="【用户接口】取消订单")
 async def cancel_event_ticket(request: PaymentRequest):
     redis = await get_redis()
-    ticket_str = await redis.hget(f"user_tickets:{request.user_id}", request.voucher)
+    ticket_str = await redis.hget(f"user_tickets:{request.user_id}", request.order_id)
     if not ticket_str:
         raise HTTPException(status_code=404, detail="找不到该笔订单")
         
@@ -214,7 +216,7 @@ async def cancel_event_ticket(request: PaymentRequest):
         raise HTTPException(status_code=400, detail="订单当前状态不可手动取消")
         
     ticket_info["status"] = "手动取消 (已关闭)"
-    await redis.hset(f"user_tickets:{request.user_id}", request.voucher, json.dumps(ticket_info))
+    await redis.hset(f"user_tickets:{request.user_id}", request.order_id, json.dumps(ticket_info))
     await redis.incr(f"slot_stock:{request.slot_id}")
     
-    return {"message": "订单取消成功，未扣除信誉分。", "voucher": request.voucher}
+    return {"message": "订单取消成功，未扣除信誉分。", "order_id": request.order_id}

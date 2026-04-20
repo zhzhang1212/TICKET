@@ -14,7 +14,7 @@ const username = userSession.username;
 const urlParams = new URLSearchParams(window.location.search);
 let currentEventId = urlParams.get('slot_id') || "";
 let currentEventName = currentEventId;
-let currentVoucher = "";
+let currentOrderId = "";
 let countdownTimer = null;
 
 function initDetail() {
@@ -37,7 +37,7 @@ function initDetail() {
     paymentZone.style.backgroundColor = "#fff3e0";
     paymentZone.innerHTML = `
         <h3 style="color:#e65100; margin-top:0;">💳 待支付订单</h3>
-        <p>凭证号：<strong id="pay-voucher"></strong></p>
+        <p>订单流水号：<strong id="pay-order-id"></strong></p>
         <p style="color:red; font-weight:bold;">剩余支付时间：<span id="pay-countdown">05:00</span></p>
         <div style="margin-top: 15px;">
             <button id="btn-pay" style="background:#4caf50; color:white; margin-right:10px;">立即模拟支付</button>
@@ -49,7 +49,7 @@ function initDetail() {
     const btnPay = document.getElementById("btn-pay");
     const btnCancel = document.getElementById("btn-cancel");
     const payCountdown = document.getElementById("pay-countdown");
-    const payVoucher = document.getElementById("pay-voucher");
+    const payOrderId = document.getElementById("pay-order-id");
 
     const fetchEventDetail = async (slotId) => {
         try {
@@ -138,12 +138,12 @@ function initDetail() {
             if (r.ok) {
                 statusMsg.innerText = res.message; 
                 statusMsg.style.color = "blue";
-                currentVoucher = res.voucher;
+                currentOrderId = res.order_id;
                 
                 // Show payment zone
                 bookBtn.style.display = "none";
                 paymentZone.style.display = "block";
-                payVoucher.innerText = currentVoucher;
+                payOrderId.innerText = currentOrderId;
                 startCountdown();
             } else {
                 const errorStr = typeof res.detail === "string" ? res.detail : JSON.stringify(res.detail);
@@ -169,7 +169,7 @@ function initDetail() {
                 body: JSON.stringify({
                     user_id: userId,
                     slot_id: currentEventId,
-                    voucher: currentVoucher
+                    order_id: currentOrderId
                 })
             });
             const res = await r.json();
@@ -203,7 +203,7 @@ function initDetail() {
                 body: JSON.stringify({
                     user_id: userId,
                     slot_id: currentEventId,
-                    voucher: currentVoucher
+                    order_id: currentOrderId
                 })
             });
             const res = await r.json();
