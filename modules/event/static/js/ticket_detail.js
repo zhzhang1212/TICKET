@@ -214,7 +214,7 @@ function initTicketDetail() {
             const res = await r.json();
             if (r.ok) {
                 if (countdownTimer) clearInterval(countdownTimer);
-                systemMsg.innerText = "🚫 订单已手动取消，未扣除信誉分。";
+                systemMsg.innerText = "订单已手动取消";
                 systemMsg.style.color = "#666";
                 fetchTicket();
             } else {
