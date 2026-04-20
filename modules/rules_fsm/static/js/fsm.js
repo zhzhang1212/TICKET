@@ -118,9 +118,21 @@ function initFsmPanel() {
             sorted.forEach((record, index) => {
                 const li = document.createElement("li");
                 li.className = "record-item";
+                
+                // Color code status
+                let statusColor = "#666";
+                let status = record.status || "未知";
+                if (status.includes("已支付")) statusColor = "#4caf50";
+                else if (status.includes("待支付")) statusColor = "#ff9800";
+                else if (status.includes("已取消")) statusColor = "#9e9e9e";
+                else if (status.includes("违约")) statusColor = "#f44336";
+
                 li.innerHTML = `
                     <span><strong>No.${index+1}</strong> 用户: <span style="color:#2196f3">${record.user_id}</span> </strong> 凭证号: <span style="font-size:0.85em;color:#aaa">${record.voucher}</span></span>
-                    <span class="timestamp">${record.timestamp}</span>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                        <span class="timestamp">${record.timestamp}</span>
+                        <span style="font-size:0.85em; font-weight: bold; color: ${statusColor}; margin-top: 4px;">${status}</span>
+                    </div>
                 `;
                 recordsContainer.appendChild(li);
             });

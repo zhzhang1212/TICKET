@@ -17,6 +17,8 @@ class BookingRecord(BaseModel):
     user_id: str
     voucher: str
     timestamp: str
+    order_id: Optional[str] = None
+    status: Optional[str] = "未知"
 
 class EventDetailResponse(BaseModel):
     slot_id: str

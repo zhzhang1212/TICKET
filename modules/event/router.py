@@ -65,6 +65,12 @@ async def get_all_events():
         successful_bookings = []
         for record_str in records:
             record = json.loads(record_str)
+            uid = record.get("user_id")
+            oid = record.get("order_id")
+            if uid and oid:
+                t_str = await redis.hget(f"user_tickets:{uid}", oid)
+                if t_str:
+                    record["status"] = json.loads(t_str).get("status", "未知")
             successful_bookings.append(BookingRecord(**record))
             
         events.append(EventDetailResponse(
@@ -95,6 +101,12 @@ async def get_event_detail(slot_id: str):
     successful_bookings = []
     for record_str in records:
         record = json.loads(record_str)
+        uid = record.get("user_id")
+        oid = record.get("order_id")
+        if uid and oid:
+            t_str = await redis.hget(f"user_tickets:{uid}", oid)
+            if t_str:
+                record["status"] = json.loads(t_str).get("status", "未知")
         successful_bookings.append(BookingRecord(**record))
         
     return EventDetailResponse(
