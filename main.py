@@ -46,6 +46,14 @@ async def event_page(request: Request):
 async def event_detail_page(request: Request, slot_id: str = ""):
     return event_templates.TemplateResponse(request=request, name="detail.html")
 
+@app.get("/event/ticket")
+async def event_ticket_page(request: Request, order_id: str = ""):
+    return event_templates.TemplateResponse(request=request, name="ticket_detail.html")
+
+@app.get("/event/ticket")
+async def event_ticket_page(request: Request, order_id: str = ""):
+    return event_templates.TemplateResponse(request=request, name="ticket_detail.html")
+
 @app.get("/rules_fsm")
 async def fsm_page(request: Request):
     return fsm_templates.TemplateResponse(request=request, name="index.html")

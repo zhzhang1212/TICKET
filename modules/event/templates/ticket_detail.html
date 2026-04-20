@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抢票凭证详情</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
+        .controls { margin-bottom: 20px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        button { padding: 12px 20px; border:none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;}
+        button:hover { opacity: 0.8;}
+        button:disabled { background: #ccc !important; cursor: not-allowed;}
+        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #4caf50; text-decoration: none;}
+        .info-row { margin-bottom: 12px; font-size: 1.1em; }
+        .info-label { color: #666; display: inline-block; width: 100px; }
+        .info-value { font-weight: bold; color: #333; }
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; color: #fff; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <a href="/" class="back-link">← 返回首页</a>
+        <h1 style="color: #2c3e50;">订单/凭证详情</h1>
+        
+        <div id="ticket-detail" class="controls" style="border-left: 5px solid #9c27b0;">
+            <div id="loading-msg" style="color:#666;">正在加载订单信息...</div>
+            
+            <div id="ticket-info" style="display:none;">
+                <div class="info-row">
+                    <span class="info-label">🎟️ 活动名称:</span>
+                    <span class="info-value" id="t-event-name">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">🔖 抢票人:</span>
+                    <span class="info-value" id="t-username">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">🕒 创单时间:</span>
+                    <span class="info-value" id="t-timestamp" style="font-family:monospace; color:#888;">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">🔢 订单流水号:</span>
+                    <span class="info-value" id="t-order-id" style="font-family:monospace;">--</span>
+                </div>
+                <div class="info-row" id="t-voucher-row" style="display:none;">
+                    <span class="info-label">🎫 入场凭证:</span>
+                    <span class="info-value" id="t-voucher" style="color:#4caf50; font-family:monospace; font-size:1.2em;">--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">🚦 当前状态:</span>
+                    <span id="t-status" class="status-badge" style="background:#ccc;">--</span>
+                </div>
+                
+                <div id="action-zone" style="margin-top: 30px; padding-top:20px; border-top: 1px dashed #eee;">
+                    <div id="pay-countdown-zone" style="display:none; margin-bottom:15px;">
+                        <p style="color:red; font-weight:bold; margin-top:0;">⏳ 剩余支付时间：<span id="pay-countdown">05:00</span></p>
+                    </div>
+                    <button id="btn-pay" style="background:#4caf50; color:white; margin-right:10px; display:none;">立即模拟支付</button>
+                    <button id="btn-cancel" style="background:#f44336; color:white; display:none;">手动取消订单</button>
+                </div>
+                
+                <div id="system-msg" style="margin-top:15px; color:#666;"></div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import("/static/event/js/ticket_detail.js?t=" + new Date().getTime());
+    </script>
+</body>
+</html>

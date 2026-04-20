@@ -212,11 +212,22 @@ async def cancel_event_ticket(request: PaymentRequest):
         raise HTTPException(status_code=404, detail="找不到该笔订单")
         
     ticket_info = json.loads(ticket_str)
-    if ticket_info.get("status") != "待支付 (请在5分钟内完成)":
+    old_status = ticket_info.get("status")
+    if old_status not in ["待支付 (请在5分钟内完成)", "失败 (已售罄)", "失败 (已关闭)"]:
         raise HTTPException(status_code=400, detail="订单当前状态不可手动取消")
         
     ticket_info["status"] = "手动取消 (已关闭)"
     await redis.hset(f"user_tickets:{request.user_id}", request.order_id, json.dumps(ticket_info))
-    await redis.incr(f"slot_stock:{request.slot_id}")
+    if old_status == "待支付 (请在5分钟内完成)":
+        await redis.incr(f"slot_stock:{request.slot_id}")
     
     return {"message": "订单取消成功，未扣除信誉分。", "order_id": request.order_id}
+
+@router.get("/ticket/{user_id}/{order_id}", summary="【用户接口】获取自己的某笔订单详情")
+async def get_ticket_detail(user_id: str, order_id: str):
+    redis = await get_redis()
+    ticket_str = await redis.hget(f"user_tickets:{user_id}", order_id)
+    if not ticket_str:
+        raise HTTPException(status_code=404, detail="找不到该笔订单")
+    return json.loads(ticket_str)
+
