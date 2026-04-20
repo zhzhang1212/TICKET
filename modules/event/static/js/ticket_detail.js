@@ -83,9 +83,12 @@ function initTicketDetail() {
                 btnCancel.style.display = "none";
                 payCountdownZone.style.display = "none";
                 
+                if (!statusStr.includes("失败") && !statusStr.includes("取消") && !statusStr.includes("关闭")) {
+                    btnCancel.style.display = "inline-block";
+                }
+                
                 if (statusStr === "待支付 (请在5分钟内完成)") {
                     btnPay.style.display = "inline-block";
-                    btnCancel.style.display = "inline-block";
                     payCountdownZone.style.display = "block";
                     
                     if (data.timestamp) {
