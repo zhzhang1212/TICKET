@@ -10,6 +10,75 @@ if (!userSession) {
 }
 const userId = userSession.userId;
 const username = userSession.username;
+let globalTimer = null;
+function setupActivityClock(info) {
+    if (globalTimer) clearInterval(globalTimer);
+    const bookBtn = document.getElementById("btn-book");
+    const timingInfo = document.getElementById("timing-info");
+    const penaltyInfo = document.getElementById("penalty-info");
+    
+    let penaltyRemaining = info.cancel_penalty_remain_sec || 0;
+    let startTimeStr = info.start_time || null;
+    let endTimeStr = info.end_time || null;
+    
+    globalTimer = setInterval(() => {
+        let isBookable = true;
+        let now = new Date();
+        
+        let startMsg = "";
+        let endMsg = "";
+        
+        if (startTimeStr) {
+            let startT = new Date(startTimeStr + "Z");
+            if (isNaN(startT.getTime())) startT = new Date(startTimeStr);
+            let diffSec = Math.floor((startT - now) / 1000);
+            if (diffSec > 0) {
+                isBookable = false;
+                startMsg = "距离预订开放还有 " + formatSec(diffSec);
+            }
+        }
+        if (endTimeStr) {
+            let endT = new Date(endTimeStr + "Z");
+            if (isNaN(endT.getTime())) endT = new Date(endTimeStr);
+            let diffSec = Math.floor((endT - now) / 1000);
+            if (diffSec <= 0) {
+                isBookable = false;
+                startMsg = "预订已经结束！";
+            } else if(isBookable) {
+                startMsg = "距离预订截止还剩 " + formatSec(diffSec);
+            }
+        }
+        
+        timingInfo.innerText = startMsg;
+        
+        if (penaltyRemaining > 0) {
+            isBookable = false;
+            penaltyInfo.innerText = "刚刚取消，需等待 " + formatSec(penaltyRemaining) + " 后重试";
+            penaltyRemaining--;
+        } else {
+            penaltyInfo.innerText = "";
+        }
+        
+        if (isBookable && info.remaining_stock > 0) {
+            bookBtn.disabled = false;
+            bookBtn.style.background = "#ff9800";
+            bookBtn.innerText = "点击报名/抢票";
+        } else {
+            bookBtn.disabled = true;
+            bookBtn.style.background = "#9e9e9e";
+            if (info.remaining_stock <= 0) {
+                bookBtn.innerText = "已售罄";
+            }
+        }
+    }, 1000);
+}
+
+function formatSec(sec) {
+    const mins = Math.floor(sec / 60).toString().padStart(2, '0');
+    const secs = (sec % 60).toString().padStart(2, '0');
+    return mins + ":" + secs;
+}
+
 
 const urlParams = new URLSearchParams(window.location.search);
 let currentEventId = urlParams.get('slot_id') || "";

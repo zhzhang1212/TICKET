@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 class EventCreate(BaseModel):
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     event_name: str
     description: str
     slot_id: str
@@ -9,6 +11,8 @@ class EventCreate(BaseModel):
     capacity: int
 
 class EventUpdate(BaseModel):
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
     event_name: Optional[str] = None
     description: Optional[str] = None
     capacity_delta: Optional[int] = None
@@ -21,6 +25,9 @@ class BookingRecord(BaseModel):
     status: Optional[str] = "未知"
 
 class EventDetailResponse(BaseModel):
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    cancel_penalty_remain_sec: Optional[int] = 0
     slot_id: str
     voucher: Optional[str] = None
     event_name: str

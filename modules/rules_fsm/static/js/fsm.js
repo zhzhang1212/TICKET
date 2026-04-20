@@ -13,6 +13,8 @@ function initFsmPanel() {
     const editEventName = document.getElementById("edit-event-name");
     const editEventDesc = document.getElementById("edit-event-desc");
     const editEventCapacity = document.getElementById("edit-event-capacity");
+    const editEventStartTime = document.getElementById("edit-event-start-time");
+    const editEventEndTime = document.getElementById("edit-event-end-time");
     const btnPublishEvent = document.getElementById("btn-publish-event");
 
     const eventDesc = document.getElementById("event-desc");
@@ -150,6 +152,8 @@ function initFsmPanel() {
             // get currently rendered capacity input
             const capacityInput = document.getElementById("edit-event-capacity");
             const capValue = capacityInput ? (parseInt(capacityInput.value) || 0) : 0;
+            const startTime = editEventStartTime && editEventStartTime.value ? editEventStartTime.value : null;
+            const endTime = editEventEndTime && editEventEndTime.value ? editEventEndTime.value : null;
 
             if (!slot_id || !name) {
                 alert("请填写完整的活动ID与名称！");
@@ -165,7 +169,9 @@ function initFsmPanel() {
                         slot_id: slot_id,
                         event_name: name,
                         description: desc,
-                        capacity: capValue
+                        capacity: capValue,
+                        start_time: startTime,
+                        end_time: endTime
                     })
                 });
                 if (r.ok) {
@@ -183,6 +189,8 @@ function initFsmPanel() {
                     event_name: name,
                     description: desc
                 };
+                if (startTime) payload.start_time = startTime;
+                if (endTime) payload.end_time = endTime;
                 if (capValue !== 0) {
                     payload.capacity_delta = capValue;
                 }

@@ -62,6 +62,9 @@
                     <label>活动 ID: <input type="text" id="edit-event-slot-id" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="如 slot_202610_01"></label>
                     <label>活动名称: <input type="text" id="edit-event-name" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"></label>
                     <label>活动描述: <textarea id="edit-event-desc" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" rows="3"></textarea></label>
+                    <br><br>
+                    <label>抢票开始时间: <input type="datetime-local" step="1" id="edit-event-start-time" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"></label>
+                    <label>抢票结束时间: <input type="datetime-local" step="1" id="edit-event-end-time" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"></label>
                     <label id="label-for-capacity">有效票数/票数增减: <input type="number" id="edit-event-capacity" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" value="0"></label>
                     <small id="capacity-hint" style="color:gray;">新建时填入总量。编辑时填入要增加或减少的值，如+10或-5。</small>
                     <button id="btn-publish-event" style="padding: 8px 15px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:bold; margin-top:5px;">🚀 确认发布 / 更新活动</button>

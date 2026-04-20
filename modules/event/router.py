@@ -7,7 +7,7 @@ from modules.event.tasks import confirm_booking_task, payment_timeout_task
 import json
 import uuid
 from datetime import datetime
-from core.scoring import check_user_eligibility
+from core.judge import check_seckill_prerequisites
 
 router = APIRouter(prefix="/events", tags=["Module B: 活动秒杀"])
 
@@ -26,11 +26,16 @@ async def create_event(event: EventCreate):
     slot_key = f"slot_stock:{event.slot_id}"
     info_key = f"event_info:{event.slot_id}"
     
-    await redis.hset(info_key, mapping={
+    mapping = {
         "event_name": event.event_name,
         "description": event.description,
         "total_capacity": str(event.capacity),
-    })
+    }
+    if event.start_time:
+        mapping["start_time"] = event.start_time
+    if event.end_time:
+        mapping["end_time"] = event.end_time
+    await redis.hset(info_key, mapping=mapping)
     await redis.set(slot_key, event.capacity)
     await redis.delete(f"event_bookings:{event.slot_id}")
     return {"message": f"成功发布活动 {event.slot_id}，总票数: {event.capacity}"}
@@ -79,12 +84,14 @@ async def get_all_events():
             description=info.get("description", ""),
             total_capacity=int(info.get("total_capacity", 0)),
             remaining_stock=stock,
-            successful_bookings=successful_bookings
+            successful_bookings=successful_bookings,
+            start_time=info.get("start_time"),
+            end_time=info.get("end_time")
         ))
     return events
 
 @router.get("/{slot_id}", response_model=EventDetailResponse, summary="【用户接口】获取活动的特定信息、余票和成交记录")
-async def get_event_detail(slot_id: str):
+async def get_event_detail(slot_id: str, user_id: Optional[str] = None):
     redis = await get_redis()
     info_key = f"event_info:{slot_id}"
     slot_key = f"slot_stock:{slot_id}"
@@ -109,13 +116,22 @@ async def get_event_detail(slot_id: str):
                 record["status"] = json.loads(t_str).get("status", "未知")
         successful_bookings.append(BookingRecord(**record))
         
+    cancel_penalty_remain_sec = 0
+    if user_id:
+        penalty_ttl = await redis.ttl(f"penalty:user_cancel:{user_id}:{slot_id}")
+        if penalty_ttl > 0:
+            cancel_penalty_remain_sec = penalty_ttl
+
     return EventDetailResponse(
         slot_id=slot_id,
         event_name=info.get("event_name", ""),
         description=info.get("description", ""),
         total_capacity=int(info.get("total_capacity", 0)),
         remaining_stock=stock,
-        successful_bookings=successful_bookings
+        successful_bookings=successful_bookings,
+        start_time=info.get("start_time"),
+        end_time=info.get("end_time"),
+        cancel_penalty_remain_sec=cancel_penalty_remain_sec
     )
 
 @router.patch("/{slot_id}", summary="【管理员接口】更新活动信息，增减售票总数")
@@ -133,6 +149,10 @@ async def update_event(slot_id: str, event: EventUpdate):
         mapping["event_name"] = event.event_name
     if event.description is not None:
         mapping["description"] = event.description
+    if event.start_time is not None:
+        mapping["start_time"] = event.start_time
+    if event.end_time is not None:
+        mapping["end_time"] = event.end_time
         
     if event.capacity_delta is not None and event.capacity_delta != 0:
         delta = event.capacity_delta
@@ -159,9 +179,9 @@ class EventTicketResponse2(EventTicketResponse):
 async def seckill_event_ticket(request: EventTicketRequest):
     redis = await get_redis()
     
-    is_eligible = await check_user_eligibility(request.user_id)
+    is_eligible, msg = await check_seckill_prerequisites(request.user_id, request.slot_id)
     if not is_eligible:
-        raise HTTPException(status_code=403, detail="抢票失败：您的信誉分低于80分，不满足规定条件。")
+        raise HTTPException(status_code=400, detail=msg)
         
     slot_key = f"slot_stock:{request.slot_id}"
     order_id = f"ORD_{uuid.uuid4().hex[:8].upper()}"
@@ -235,6 +255,9 @@ async def cancel_event_ticket(request: PaymentRequest):
     
     # Increase stock back
     await redis.incr(f"slot_stock:{request.slot_id}")
+    
+    # 增加取消惩罚 (10 分钟)
+    await redis.setex(f"penalty:user_cancel:{request.user_id}:{request.slot_id}", 600, cancel_time)
     
     return {"message": "订单取消成功", "order_id": request.order_id}
 
