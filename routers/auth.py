@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+import hashlib
+import hmac
 import secrets
 import uuid
 import json
@@ -7,9 +9,46 @@ from core.redis_db import get_redis
 
 router = APIRouter(prefix="/auth", tags=["Global Auth"])
 
+PASSWORD_ALGO = "pbkdf2_sha256"
+PASSWORD_ITERATIONS = 390000
+
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    derived_key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        PASSWORD_ITERATIONS,
+    )
+    return f"{PASSWORD_ALGO}${PASSWORD_ITERATIONS}${salt}${derived_key.hex()}"
+
+
+def _verify_password(password: str, stored_password: str) -> bool:
+    if not stored_password:
+        return False
+
+    parts = stored_password.split("$", 3)
+    if len(parts) == 4 and parts[0] == PASSWORD_ALGO:
+        try:
+            iterations = int(parts[1])
+            salt = parts[2]
+            expected_key = bytes.fromhex(parts[3])
+            derived_key = hashlib.pbkdf2_hmac(
+                "sha256",
+                password.encode("utf-8"),
+                salt.encode("utf-8"),
+                iterations,
+            )
+            return hmac.compare_digest(derived_key, expected_key)
+        except (ValueError, TypeError):
+            return False
+
+    return hmac.compare_digest(stored_password, password)
 
 
 async def _issue_ws_token(redis, user_id: str) -> str:
@@ -33,8 +72,11 @@ async def login_or_register(req: LoginRequest):
     if is_exists:
         # 已存在：验证密码
         stored_password = await redis.hget(user_key, "password")
-        if stored_password != req.password:
+        if not _verify_password(req.password, stored_password):
             raise HTTPException(status_code=401, detail="密码校验失败，该用户名已被注册或您输入了错误的密码。")
+
+        if stored_password and not stored_password.startswith(f"{PASSWORD_ALGO}$"):
+            await redis.hset(user_key, "password", _hash_password(req.password))
         
         user_id = await redis.hget(user_key, "user_id")
         reputation = await redis.hget(user_key, "reputation")
@@ -53,7 +95,7 @@ async def login_or_register(req: LoginRequest):
         # 封装全部初始属性存入 Redis Hash 中
         await redis.hset(user_key, mapping={
             "user_id": new_user_id,
-            "password": req.password,
+            "password": _hash_password(req.password),
             "reputation": "100",  # 默认满分100信誉分
             "booked_count": "0",  # 历史预定场次数量
             "rooms": "[]"         # 持有的房间（序列化JSON表）
