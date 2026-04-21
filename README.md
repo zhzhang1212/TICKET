@@ -11,36 +11,40 @@
 ```text
 ├── main.py                  # 【主入口】功能：初始化 FastAPI 应用实例。联动：挂载 routers/ws.py、各 modules/ 路由；调用 core/redis_db.py 管理生命周期；装载静态与模板资源。
 ├── requirements.txt         # 【依赖管理】功能：记录全局 Python 依赖包清单。
+├── Dockerfile               # 【部署容器】多阶段构建，优化镜像体积与安全。
+├── docker-compose.yml       # 【服务编排】一键拉起 Postgres、Redis、Web 及 Celery Worker。
 ├── core/                    # 【核心基建与公共服务层】功能：全局单例服务，独立于任何单一业务模块。
-│   ├── redis_db.py          #   - 功能：Redis 异步连接池与操作服务。联动：被 main.py(启停)、routers/ws.py(PubSub监听)、modules/event/router.py(Lua限流) 调用或订阅。
-│   ├── scoring.py           #   - 功能：风控与信誉引擎（校验逾期、扣分惩罚）。联动：被各业务 module 在下放资源前阻断式调用。
-│   └── ai_moderation.py     #   - 功能：AI 内容审查与总结服务扩展锚点。联动：为内容发布类等上层业务提供审查接口。
+│   ├── redis_db.py          #   - 功能：Redis 异步连接池与操作服务。联动：被 main.py、routers/ws.py、modules/event/router.py 调用或订阅。
+│   ├── database.py          #   - 功能：PostgreSQL 异步引擎设置及初始化保障。
+│   ├── models.py            #   - 功能：底层数据库模型实体（包括时间缓冲区间、排斥约束等特性化建表配置）。
+│   └── judge.py             #   - 功能：资格判定引擎，接管核心的前置校验逻辑。
 ├── modules/                 # 【自治业务微服务层】功能：按特性划分的物理隔离微服务（避免代码合流与网关冲突）。
 │   ├── event/               #   - 【活动秒杀】功能：高并发活动抢票的独立闭环。
-│   │   ├── router.py        #     - 功能：秒杀鉴权与极速 Redis 预扣网关。联动：被 main.py 挂载，调用同级 tasks.py 推送排队指令。绝对禁止直接查写 DB。
-│   │   ├── schemas.py       #     - 功能：事件模块私有 Pydantic 模型。联动：仅供同级 router.py 单向校验。
-│   │   └── tasks.py         #     - 功能：Celery Worker 消费者，抗峰并执行落库与回滚。联动：消费 router.py 下发的工单；成功或失败均通过 Redis PubSub 通知 routers/ws.py。
+│   │   ├── router.py        #     - 功能：秒杀鉴权与极速 Redis 预扣网关。绝对禁止直接查写 DB。
+│   │   ├── schemas.py       #     - 功能：事件模块私有 Pydantic 模型。仅供同级 router.py 单向校验。
+│   │   └── tasks.py         #     - 功能：Celery Worker 消费者，抗峰并执行落库与回滚。成功或失败均通过 Redis PubSub 通知 routers/ws.py。
 │   ├── space/               #   - 【空间调度】功能：处理学术空间、离散体育设施等非并发预约。
-│   │   ├── router.py        #     - 功能：空间分配与时间缓冲期排他校验路由。联动：向上接入 main.py，底层调用 rules_fsm 进行复杂规则结算。
+│   │   ├── router.py        #     - 功能：空间分配与时间缓冲期排他校验路由。底层调用 rules_fsm 进行复杂规则结算。
 │   │   └── schemas.py       #     - 功能：空间模块私有 Pydantic 校验模型。
 │   └── rules_fsm/           #   - 【抽象规则底层引擎】功能：统一的复杂业务过滤与流转决策中心。
-│       ├── fsm/order_fsm.py #     - 功能：流转订单状态（待确认/已取消等），防幽灵支付。联动：以插件形态供 space/ 或 event/ 业务侧引入结算。
-│       └── rule_engine/base.py#   - 功能：预约规则判断的责任链拦截器。联动：供外围调用验证用户配额与门槛。
+│       ├── fsm/order_fsm.py #     - 功能：流转订单状态（待确认/已取消等），防幽灵支付。
+│       └── rule_engine/base.py#   - 功能：预约规则判断的责任链拦截器。验证用户配额与门槛。
 ├── routers/                 # 【全局非业务路由层】存放通信、状态等底座级外网敞口。
-│   └── ws.py                #   - 功能：全站长连接广播下发节点。联动：订阅 core/redis_db.py 信标流，实时推送确权结果至前端 static/js/core/ws.js。
-├── schemas/                 # 【全局共有规范层】功能：存放各线高度重叠时的数据基础泛型（随业务自治已极度精简，供未来扩展基类使用）。
+│   ├── auth.py              #   - 功能：登录校验与发给前端的自动身份信息整合，密码哈希存储等控制。
+│   └── ws.py                #   - 功能：全站长连接广播下发节点。实时推送确权结果至前端 static/js/core/ws.js。
+├── schemas/                 # 【全局共有规范层】存放各线高度重叠时的基础泛型封装。
 ├── static/                  # 【前端静态资源层】按域隔离的原生 ES6 与样式。
-│   ├── css/style.css        #   - 功能：全局的基础 UI 级统一样式定义。联动：被 templates 引用加载。
+│   ├── css/style.css        #   - 功能：全局的基础 UI 级统一样式定义。
 │   └── js/
-│       ├── core/            #   - 【前端基建】
-│       │   ├── api.js       #     - 功能：RESTful Fetch 请求的统一封装与拦截。联动：供前端各大业务模块调起 Ajax 请求，对接近端 FastAPI 主入口。
-│       │   └── ws.js        #     - 功能：单页面全局 WS 长连接守护进程。联动：长连接后端 routers/ws.py，监听广播后按业务标签派发 UI 刷新命令。
-│       ├── features/        #   - 【前端自治业务】
-│       │   └── booking.js   #     - 功能：预约大厅与秒杀交互的前台独立动作。联动：组装参数提交 api.js 接口，在 ws.js 注册渲染事件回调。
-│       └── shared/          #   - 【公共前端组件】功能：存放可高度复用的纯净 JS 实现 (如独立富文本处理, 多态弹窗控制等)。
-└── templates/               # 【服务端渲染模板层】基于 Jinja2 构建的动态视图。
-    ├── components/          #   - 功能：被高度复用的 HTML 代码片段。联动：为 index.html 和其他业务页面注入一致的 Navbar、Sidebar。
-    └── index.html           #   - 功能：平台的首屏单页面 Web 骨架。联动：由 main.py 的 `/` 路由直接进行 SSR 响应装配。
+│       └── core/            #   - 【前端基建】
+│           └── ws.js        #     - 功能：单页面全局 WS 长连接守护进程。
+├── templates/               # 【服务端渲染模板层】基于 Jinja2 构建的动态视图。
+│   ├── index.html           #   - 功能：平台的首屏单页面 Web 骨架。
+│   └── login.html           #   - 功能：用户登录/默认自动注册页面。
+├── tests/                   # 【测试资源库】功能：涵盖核心机制和模块的完备单元测试。
+│   ├── test_fsm.py          #   - 功能：校验 FSM 状态机跳转及安全卡口。
+│   └── test_rules.py        #   - 功能：验证高复杂度配置及排他等组合规则链处理。
+└── .github/workflows/       # 【CI 流水线】自动化验收，包含了构建镜像与代码风格校验（ruff）和单元测试运行。
 ```
 
 ## 2. 核心组件功能说明
@@ -228,12 +232,62 @@ AI 辅助工具：允许并鼓励使用 AI 编程助手（Claude, GitHub Copilot
 
 ###需要在最后阶段补充dockerfile以及CI/CD配置###
 
-Dockerfile 不是多阶段构建
-Dockerfile:1 到 Dockerfile:12 是单阶段镜像，且直接 COPY . .。
-赛题写了“必须包含多阶段构建 Dockerfile”，当前不满足硬性描述。
+（以上缺失项均已在当前版本中完善。详细部署方式与运行说明如下。）
 
-readme修改
+## 8. 部署方式与运行说明
 
-安全基线不达标：密码明文存储
-routers/auth.py:46 直接把 req.password 写入 Redis，routers/auth.py:27 明文比对。
-赛题要求参考 OWASP Top 10，这块会被明确指出。
+本项目原生支持 `docker-compose`，所有基础设施（PostgreSQL, Redis, RabbitMQ等）和应用服务（Web, Worker）无需手动安装，全量容器化编排。
+
+**环境依赖：**
+- Docker (建议 20.10+版本)
+- Docker Compose v2 插件
+
+### 一键启动
+
+在项目根目录下执行：
+```bash
+# 以后台模式构建并启动所有服务（构建时自动采用多阶段部署以降低镜像体积）
+docker compose up -d --build
+```
+
+此时系统将拉起 4 个容器：
+1. `postgres` (带健康检查与 btree_gist 特性)
+2. `redis` 
+3. `web` (FastAPI 网关与前端静态托管，暴露在 8000 端口)
+4. `worker` (Celery 队列消费守护进程)
+
+你可以使用 `docker compose logs -f web worker` 跟踪运行日志。
+
+### 访问面板与功能验证
+
+容器启动正常后（PostgreSQL等完成初始化配置）：
+
+1. **首页大厅**：浏览器访问 `http://localhost:8000/`
+2. **测试账号与身份系统**：
+   - 登录页访问：`http://localhost:8000/login`
+   - 用户名与密码（**支持空密码/自动注册**）：由于我们集成了简化身份体系。如果您输入的用户名不存在，**系统将自动注册、初始化用户并执行密码保护哈希存入**。您可以输入任意测试名（例如：`user_demo`）。
+   - 注：请避免用作真实生产环境密码，哈希已通过核心安全验证。
+3. **管理员预发测试环境：**
+   我们内置了如下测试数据流，也可自己按需要发起 API 初始化：
+   - **学术空间及体育设施**在后端冷启动时已经由 `main.py` 的 seed 函数预置。
+   - **活动预发：** 如果你想通过管理员模式下发抢票活动给全站用户，可以参照下面的命令触发 API（替换时间与名额，确保 `-H "X-Admin-Key"` 与环境变量相符，默认为 `dev-admin-key`）：
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/events/" \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: dev-admin-key" \
+  -d '{
+    "slot_id":"slot_001",
+    "event_name":"十佳歌手决赛演示",
+    "description":"模拟万级热门抢票体验",
+    "capacity":10
+  }'
+```
+
+### CI/CD 验收
+
+工程已经集成标准的 `.github/workflows/ci.yml` 自动化验收管道。
+提交代码会自动触发：
+1. **Linting** (`ruff check .`) 检查风格冗余
+2. **单元测试** (`pytest`) 验证核心的订单状态机（FSM）与抽象规则过滤组件。
+3. **冒烟测试** 建立临时容器，完成基于多阶段构建的组装和部署生命周期测试。
