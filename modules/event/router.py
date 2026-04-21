@@ -329,7 +329,14 @@ async def cancel_event_ticket(request: PaymentRequest, current_user_id: str = De
 
 
 @router.get("/ticket/{user_id}/{order_id}", summary="【用户接口】获取自己的某笔订单详情")
-async def get_ticket_detail(user_id: str, order_id: str):
+async def get_ticket_detail(
+    user_id: str,
+    order_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权访问他人订单")
+
     redis = await get_redis()
     ticket_str = await redis.hget(f"user_tickets:{user_id}", order_id)
     if not ticket_str:
