@@ -4,41 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>活动秒杀服务</title>
+    <title>活动秒杀 - 智约校园</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
-        .controls { margin-bottom: 20px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
-        button { padding: 12px 20px; border:none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;}
-        button:hover { opacity: 0.8;}
-        button:disabled { background: #ccc !important; cursor: not-allowed;}
-        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #4caf50; text-decoration: none;}
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: sans-serif; background: #fafafa; padding: 20px; margin: 0; }
+        .skip-link {
+            position: absolute; top: -40px; left: 8px; background: #2c3e50; color: #fff;
+            padding: 8px 14px; border-radius: 4px; text-decoration: none; font-weight: bold; z-index: 9999;
+        }
+        .skip-link:focus { top: 8px; }
+        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #2e7d32; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .back-link:focus { outline: 2px solid #2e7d32; outline-offset: 2px; border-radius: 2px; }
+        h1 { color: #2c3e50; margin-top: 0; }
         .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .event-card { padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border: 1px solid #eee; border-top-width: 5px; display:flex; flex-direction:column; justify-content:space-between; }
-        .event-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
+        .event-card {
+            padding: 20px; background: #fff; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07); cursor: pointer; transition: 0.2s;
+            border: 2px solid transparent; border-top-width: 5px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            text-decoration: none; color: inherit;
+        }
+        .event-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.12); }
+        .event-card:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21,101,192,0.25); }
+        #loading-indicator { color: #888; }
+        @media (max-width: 600px) {
+            .grid-container { grid-template-columns: 1fr; }
+            h1 { font-size: 1.3em; }
+        }
     </style>
 </head>
 <body>
-    <div id="app">
-        <a href="/" class="back-link">← 返回首页</a>
-        <h1 style="color: #2c3e50;">活动秒杀服务体验大厅</h1>
-        
-        <div id="activity-list">
-            <h3 style="margin-top:0">📢 当前火爆活动列表</h3>
-            <div id="dynamic-events-container" class="grid-container">
-                <span style="color:#aaa;">正在加载活动...</span>
+    <a href="#main-content" class="skip-link">跳到主要内容</a>
+    <main id="main-content">
+        <a href="/" class="back-link" aria-label="返回首页">← 返回首页</a>
+        <h1>活动秒杀大厅</h1>
+
+        <section aria-label="当前活动列表">
+            <h2 style="margin-top:0; font-size:1.05em; color:#555;">📢 当前火爆活动</h2>
+            <div id="dynamic-events-container" class="grid-container" aria-live="polite" aria-busy="true">
+                <span id="loading-indicator">正在加载活动...</span>
             </div>
-        </div>
+        </section>
+    </main>
 
-        <div id="activity-detail" class="controls" style="display:none; border-left: 5px solid #4caf50;">
-            <!-- details moved to detail.html -->
-        </div>
-    </div>
-
-    <!-- 模块化引入 ES6 脚本 (使用动态 import 防止缓存旧版本) -->
     <script type="module">
         import("/static/event/js/booking.js?t=" + new Date().getTime());
     </script>

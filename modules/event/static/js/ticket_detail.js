@@ -87,7 +87,7 @@ function initTicketDetail() {
                     btnCancel.style.display = "inline-block";
                 }
                 
-                if (statusStr === "待支付 (请在5分钟内完成)") {
+                if (statusStr === "待支付") {
                     btnPay.style.display = "inline-block";
                     payCountdownZone.style.display = "block";
                     

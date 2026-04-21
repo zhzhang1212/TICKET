@@ -1,3 +1,117 @@
+function initSpacePanels() {
+    const navGrid = document.querySelector("nav.grid-container");
+    const roomSection = document.getElementById("room-management-section");
+    const venueSection = document.getElementById("venue-management-section");
+    const btnRoomMgr = document.getElementById("btn-room-mgr");
+    const btnVenueMgr = document.getElementById("btn-venue-mgr");
+    const btnRoomBack = document.getElementById("btn-room-back");
+    const btnVenueBack = document.getElementById("btn-venue-back");
+    const roomContainer = document.getElementById("room-list-container");
+    const venueContainer = document.getElementById("venue-list-container");
+
+    const showSection = (section) => {
+        if (navGrid) navGrid.style.display = "none";
+        if (section) section.style.display = "block";
+    };
+
+    const hideSection = (section) => {
+        if (section) section.style.display = "none";
+        if (navGrid) navGrid.style.display = "grid";
+    };
+
+    const fmtDateTime = (iso) => {
+        if (!iso) return "--";
+        const d = new Date(iso);
+        return d.toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-");
+    };
+
+    const statusClass = (s) => {
+        if (!s) return "";
+        if (s === "confirmed") return "status-confirmed";
+        if (s === "cancelled") return "status-cancelled";
+        return "status-pending";
+    };
+
+    const statusLabel = (s) => {
+        const map = { confirmed: "已确认", cancelled: "已取消", pending: "待确认" };
+        return map[s] || s;
+    };
+
+    const loadSpaceData = async (container, type) => {
+        if (!container) return;
+        container.innerHTML = '<p style="color:#888;">正在加载...</p>';
+        try {
+            const r = await fetch("/api/v1/spaces/admin/bookings");
+            if (!r.ok) { container.innerHTML = '<p style="color:red;">加载失败，请重试。</p>'; return; }
+            const data = await r.json();
+            const rows = type === "academic" ? (data.academic || []) : (data.sports || []);
+            if (rows.length === 0) {
+                container.innerHTML = '<p class="empty-hint">暂无预约记录。</p>';
+                return;
+            }
+            const wrapper = document.createElement("div");
+            wrapper.className = "table-wrapper";
+            const table = document.createElement("table");
+            table.className = "admin-table";
+
+            if (type === "academic") {
+                table.innerHTML = '<thead><tr><th>预约ID</th><th>用户</th><th>场地</th><th>开始时间</th><th>结束时间</th><th>状态</th></tr></thead>';
+                const tbody = document.createElement("tbody");
+                rows.forEach(row => {
+                    const tr = document.createElement("tr");
+                    const tdId = document.createElement("td"); tdId.textContent = row.booking_id;
+                    const tdUser = document.createElement("td"); tdUser.textContent = row.user_id || "--";
+                    const tdSpace = document.createElement("td"); tdSpace.textContent = row.space_name || row.space_id;
+                    const tdStart = document.createElement("td"); tdStart.textContent = fmtDateTime(row.actual_start);
+                    const tdEnd = document.createElement("td"); tdEnd.textContent = fmtDateTime(row.actual_end);
+                    const tdSt = document.createElement("td");
+                    tdSt.textContent = statusLabel(row.status);
+                    tdSt.className = statusClass(row.status);
+                    tr.append(tdId, tdUser, tdSpace, tdStart, tdEnd, tdSt);
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+            } else {
+                table.innerHTML = '<thead><tr><th>预约ID</th><th>用户</th><th>场地</th><th>日期</th><th>时段</th><th>状态</th></tr></thead>';
+                const tbody = document.createElement("tbody");
+                rows.forEach(row => {
+                    const tr = document.createElement("tr");
+                    const tdId = document.createElement("td"); tdId.textContent = (row.group_booking_id || row.booking_ids[0]);
+                    const tdUser = document.createElement("td"); tdUser.textContent = row.user_id || "--";
+                    const tdSpace = document.createElement("td"); tdSpace.textContent = row.space_ids.join(", ");
+                    const tdDate = document.createElement("td"); tdDate.textContent = row.slot_date;
+                    const tdHour = document.createElement("td"); tdHour.textContent = `${row.slot_hour}:00`;
+                    const tdSt = document.createElement("td");
+                    tdSt.textContent = statusLabel(row.status);
+                    tdSt.className = statusClass(row.status);
+                    tr.append(tdId, tdUser, tdSpace, tdDate, tdHour, tdSt);
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+            }
+            wrapper.appendChild(table);
+            container.innerHTML = "";
+            container.appendChild(wrapper);
+        } catch (e) {
+            console.error("加载空间预约数据失败", e);
+            container.innerHTML = '<p style="color:red;">网络异常，无法加载数据。</p>';
+        }
+    };
+
+    if (btnRoomMgr) {
+        const open = () => { showSection(roomSection); loadSpaceData(roomContainer, "academic"); };
+        btnRoomMgr.onclick = open;
+        btnRoomMgr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") open(); });
+    }
+    if (btnVenueMgr) {
+        const open = () => { showSection(venueSection); loadSpaceData(venueContainer, "sports"); };
+        btnVenueMgr.onclick = open;
+        btnVenueMgr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") open(); });
+    }
+    if (btnRoomBack) btnRoomBack.onclick = () => hideSection(roomSection);
+    if (btnVenueBack) btnVenueBack.onclick = () => hideSection(venueSection);
+}
+
 function initFsmPanel() {
     const mainDashboard = document.getElementById("main-dashboard");
     const btnTicketMgr = document.getElementById("btn-ticket-mgr");
@@ -28,11 +142,24 @@ function initFsmPanel() {
 
     let currentEvents = [];
 
+    const navGrid = document.querySelector("nav.grid-container");
+    const btnTicketBack = document.getElementById("btn-ticket-back");
+
     if (btnTicketMgr) {
-        btnTicketMgr.onclick = () => {
-            if (mainDashboard) mainDashboard.style.display = "none";
+        const openTicket = () => {
+            if (navGrid) navGrid.style.display = "none";
             if (ticketManagementSection) ticketManagementSection.style.display = "block";
             loadEvents();
+        };
+        btnTicketMgr.onclick = openTicket;
+        btnTicketMgr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") openTicket(); });
+    }
+
+    if (btnTicketBack) {
+        btnTicketBack.onclick = () => {
+            if (ticketManagementSection) ticketManagementSection.style.display = "none";
+            if (detailPanel) detailPanel.style.display = "none";
+            if (navGrid) navGrid.style.display = "grid";
         };
     }
 
@@ -58,15 +185,24 @@ function initFsmPanel() {
         events.forEach(ev => {
             const card = document.createElement("div");
             card.className = "card";
-            card.innerHTML = `
-                <h3>🎫 ${ev.event_name || ev.slot_id}</h3>
-                <p style="color:#888;">${ev.description || "暂无描述"}</p>
-                <div style="font-size:0.9em; margin-top:10px;">
-                    <span>有效票数：<strong>${ev.total_capacity}</strong></span> | 
-                    <span>剩余：<strong style="color:red">${ev.remaining_stock}</strong></span>
-                </div>
-            `;
+            card.setAttribute("tabindex", "0");
+
+            const h3 = document.createElement("h3");
+            h3.textContent = `🎫 ${ev.event_name || ev.slot_id}`;
+
+            const p = document.createElement("p");
+            p.style.color = "#555";
+            p.textContent = ev.description || "暂无描述";
+
+            const meta = document.createElement("div");
+            meta.style.cssText = "font-size:0.9em; margin-top:10px;";
+            meta.innerHTML = `<span>有效票数：<strong>${ev.total_capacity}</strong></span> | <span>剩余：<strong style="color:#c62828">${ev.remaining_stock}</strong></span>`;
+
+            card.appendChild(h3);
+            card.appendChild(p);
+            card.appendChild(meta);
             card.onclick = () => openEditPanel(ev);
+            card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") openEditPanel(ev); });
             listContainer.appendChild(card);
         });
     };
@@ -129,13 +265,31 @@ function initFsmPanel() {
                 else if (status.includes("已取消")) statusColor = "#9e9e9e";
                 else if (status.includes("违约")) statusColor = "#f44336";
 
-                li.innerHTML = `
-                    <span><strong>No.${index+1}</strong> 用户: <span style="color:#2196f3">${record.user_id}</span> </strong> 凭证号: <span style="font-size:0.85em;color:#aaa">${record.voucher}</span></span>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end;">
-                        <span class="timestamp">${record.timestamp}</span>
-                        <span style="font-size:0.85em; font-weight: bold; color: ${statusColor}; margin-top: 4px;">${status}</span>
-                    </div>
-                `;
+                const left = document.createElement("span");
+                const uid = document.createElement("span");
+                uid.style.color = "#1565c0";
+                uid.textContent = record.user_id;
+                const vchr = document.createElement("span");
+                vchr.style.cssText = "font-size:0.85em; color:#555;";
+                vchr.textContent = record.voucher;
+                left.innerHTML = `<strong>No.${index + 1}</strong> 用户: `;
+                left.appendChild(uid);
+                left.append("  凭证号: ");
+                left.appendChild(vchr);
+
+                const right = document.createElement("div");
+                right.style.cssText = "display:flex; flex-direction:column; align-items:flex-end;";
+                const ts = document.createElement("span");
+                ts.className = "timestamp";
+                ts.textContent = record.timestamp;
+                const st = document.createElement("span");
+                st.style.cssText = `font-size:0.85em; font-weight:bold; color:${statusColor}; margin-top:4px;`;
+                st.textContent = status;
+                right.appendChild(ts);
+                right.appendChild(st);
+
+                li.appendChild(left);
+                li.appendChild(right);
                 recordsContainer.appendChild(li);
             });
         } else {
@@ -241,7 +395,8 @@ function initFsmPanel() {
 }
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initFsmPanel);
+    document.addEventListener("DOMContentLoaded", () => { initSpacePanels(); initFsmPanel(); });
 } else {
+    initSpacePanels();
     initFsmPanel();
 }

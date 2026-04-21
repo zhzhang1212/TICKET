@@ -72,6 +72,7 @@ class AcademicBookingOut(BaseModel):
     booking_id: str
     space_id: str
     space_name: Optional[str] = None
+    user_id: Optional[str] = None
     actual_start: datetime
     actual_end: datetime
     status: str
@@ -83,6 +84,7 @@ class SportsBookingOut(BaseModel):
     booking_ids: List[str]
     group_booking_id: Optional[str]
     space_ids: List[str]
+    user_id: Optional[str] = None
     slot_date: date
     slot_hour: int
     status: str

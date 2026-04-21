@@ -1,0 +1,7 @@
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501", "E402", "F401", "F811", "E711", "E712"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

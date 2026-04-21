@@ -3,92 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>底层规则与风控中心</title>
+    <title>规则与风控中心 - 智约校园</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
-        .card { padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px; cursor: pointer; transition: 0.2s;}
-        .card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15);}
-        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #4caf50; text-decoration: none;}
-        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        #detail-panel { display: none; margin-top: 20px; padding: 20px; background: #fff; border-radius: 8px; border-left: 5px solid #2196f3;}
-        .record-list { list-style: none; padding: 0; }
-        .record-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: sans-serif; background: #fafafa; padding: 20px; margin: 0; }
+        .back-link { display: inline-block; margin-bottom: 20px; font-weight: bold; color: #2e7d32; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .back-link:focus { outline: 2px solid #2e7d32; outline-offset: 2px; border-radius: 2px; }
+        h1 { color: #2c3e50; margin-top: 0; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .card {
+            padding: 20px; background: #fff; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.08); transition: 0.2s;
+            border: 2px solid transparent; cursor: pointer;
+        }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.13); }
+        .card:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21,101,192,0.25); }
+        .card h3 { margin-top: 0; color: #1a237e; }
+        .card p { color: #555; margin: 0; font-size: 0.92em; }
+        .section-divider { margin-top: 30px; border-top: 2px solid #e0e0e0; padding-top: 20px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .panel-header h2 { margin: 0; color: #1565c0; }
+        #detail-panel {
+            display: none; margin-top: 20px; padding: 20px;
+            background: #fff; border-radius: 8px; border-left: 5px solid #1565c0;
+        }
+        .record-list { list-style: none; padding: 0; margin: 0; }
+        .record-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
         .record-item:last-child { border-bottom: none; }
-        .timestamp { color: #888; font-size: 0.9em; }
+        .timestamp { color: #555; font-size: 0.88em; }
+
+        /* 表单 */
+        .form-grid { display: flex; flex-direction: column; gap: 10px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 0.88em; font-weight: bold; color: #555; }
+        .form-group input, .form-group textarea {
+            padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px;
+            font-size: 0.95em; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .form-group input:focus, .form-group textarea:focus { border-color: #1565c0; box-shadow: 0 0 0 2px rgba(21,101,192,0.2); }
+        .btn {
+            padding: 9px 18px; border: none; border-radius: 4px; font-weight: bold;
+            cursor: pointer; transition: 0.2s; font-size: 0.95em;
+        }
+        .btn:focus { outline: 3px solid #1a237e; outline-offset: 2px; }
+        .btn-primary { background: #1565c0; color: #fff; }
+        .btn-success { background: #e65100; color: #fff; }
+        .btn-neutral { background: #9e9e9e; color: #fff; }
+        .btn-refresh { background: #1565c0; color: #fff; }
+        small { color: #555; font-size: 0.8em; }
+
+        /* 管理台表格 */
+        .admin-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .admin-table th { background: #1565c0; color: #fff; padding: 8px 10px; text-align: left; font-weight: bold; }
+        .admin-table td { padding: 8px 10px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+        .admin-table tr:last-child td { border-bottom: none; }
+        .admin-table tr:nth-child(even) td { background: #f5f5f5; }
+        .status-confirmed { color: #2e7d32; font-weight: bold; }
+        .status-cancelled { color: #9e9e9e; }
+        .status-pending { color: #e65100; font-weight: bold; }
+        .empty-hint { color: #888; text-align: center; padding: 20px; }
+        .table-wrapper { overflow-x: auto; }
+
+        @media (max-width: 600px) {
+            .grid-container { grid-template-columns: 1fr; }
+            .panel-header { flex-direction: column; align-items: flex-start; }
+            h1 { font-size: 1.3em; }
+        }
     </style>
 </head>
 <body>
-    <div id="app">
-        <a href="/" class="back-link">← 返回首页</a>
-        <h1 style="color: #2c3e50;">底层规则 FSM 与 管理大盘</h1>
-        
-        <div class="grid-container" id="main-dashboard">
-            <div class="card" onclick="alert('房间管理模块尚未接入此大盘面板。')">
+    <a href="/" class="back-link" aria-label="返回首页">← 返回首页</a>
+    <main>
+        <h1>底层规则 FSM 与管理大盘</h1>
+
+        <nav class="grid-container" aria-label="管理模块">
+            <div class="card" id="btn-room-mgr" role="button" tabindex="0" aria-label="打开房间管理台">
                 <h3>🚪 房间管理</h3>
-                <p style="color:#888;">学术空间、研讨室的管理控制台与预约审核。</p>
+                <p>学术空间、研讨室的管理控制台与预约审核。</p>
             </div>
-            
-            <div class="card" onclick="alert('场地管理模块尚未接入此大盘面板。')">
+            <div class="card" id="btn-venue-mgr" role="button" tabindex="0" aria-label="打开场地管理台">
                 <h3>🏟️ 场地管理</h3>
-                <p style="color:#888;">体育场馆、公共场地的排期及风控管理。</p>
+                <p>体育场馆、公共场地的排期及风控管理。</p>
             </div>
-            
-            <div class="card" id="btn-ticket-mgr">
+            <div class="card" id="btn-ticket-mgr" role="button" tabindex="0" aria-label="打开票务管理台">
                 <h3>🎫 票务管理</h3>
-                <p style="color:#888;">高并发热门活动的抢票成功明细与统计，查看用户抢占时间轴，发布及管理活动。</p>
+                <p>高并发活动抢票明细与统计，发布及管理活动。</p>
+            </div>
+        </nav>
+
+        <!-- 房间管理面板 -->
+        <div id="room-management-section" class="section-divider" style="display:none;">
+            <div class="panel-header">
+                <h2>🚪 房间管理台（学术空间）</h2>
+                <button id="btn-room-back" class="btn btn-neutral" aria-label="返回模块选择">← 返回</button>
+            </div>
+            <div id="room-list-container" aria-live="polite">
+                <p style="color:#888;">正在加载...</p>
             </div>
         </div>
 
-        <div id="ticket-management-section" style="display:none; margin-top:30px; border-top:2px solid #eee; padding-top:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                <h2 style="margin:0; color:#2196f3;">票务管理台</h2>
-                <button id="btn-show-publish" style="padding:10px 20px; font-size:1em; background:#4caf50; color:white; border:none; border-radius:5px; cursor:pointer;">发布新活动</button>
+        <!-- 场地管理面板 -->
+        <div id="venue-management-section" class="section-divider" style="display:none;">
+            <div class="panel-header">
+                <h2>🏟️ 场地管理台（体育场馆）</h2>
+                <button id="btn-venue-back" class="btn btn-neutral" aria-label="返回模块选择">← 返回</button>
             </div>
-            
-            <div class="grid-container" id="event-list-container">
-                <!-- 活动将通过JS在此处渲染卡片 -->
+            <div id="venue-list-container" aria-live="polite">
+                <p style="color:#888;">正在加载...</p>
             </div>
+        </div>
 
-            <!-- 发布新活/编辑活动的统一详情面板 -->
-            <div id="detail-panel" style="display:none;">
-            <h3 id="panel-title" style="margin-top:0;">发布/编辑</h3>
-            
-            <div id="admin-editor" style="margin-bottom: 20px; padding: 15px; border: 1px dashed #2196f3; background: #fafafa; border-radius: 8px;">
-                <h4 style="margin-top:0; color: #2196f3;">⚙️ 发行与管理编辑</h4>
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <input type="hidden" id="edit-event-id">
-                    <label>活动 ID: <input type="text" id="edit-event-slot-id" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="如 slot_202610_01"></label>
-                    <label>活动名称: <input type="text" id="edit-event-name" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"></label>
-                    <label>活动描述: <textarea id="edit-event-desc" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" rows="3"></textarea></label>
-                    <br><br>
-                    <label>抢票开始时间: <input type="datetime-local" step="1" id="edit-event-start-time" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"></label>
-                    <label>抢票结束时间: <input type="datetime-local" step="1" id="edit-event-end-time" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"></label>
-                    <label id="label-for-capacity">有效票数/票数增减: <input type="number" id="edit-event-capacity" style="width:100%; padding:5px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" value="0"></label>
-                    <small id="capacity-hint" style="color:gray;">新建时填入总量。编辑时填入要增加或减少的值，如+10或-5。</small>
-                    <button id="btn-publish-event" style="padding: 8px 15px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:bold; margin-top:5px;">🚀 确认发布 / 更新活动</button>
-                    <button id="btn-close-panel" style="padding: 8px 15px; background: #ccc; color: black; border: none; border-radius: 4px; cursor: pointer; font-weight:bold; margin-top:5px;">❌ 关闭并取消</button>
+        <div id="ticket-management-section" class="section-divider" style="display:none;">
+            <div class="panel-header">
+                <h2>票务管理台</h2>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button id="btn-show-publish" class="btn btn-primary" aria-label="发布新活动">发布新活动</button>
+                    <button id="btn-ticket-back" class="btn btn-neutral" aria-label="返回模块选择">← 返回</button>
                 </div>
             </div>
 
-            <div id="event-stats" style="margin-bottom: 15px; padding: 10px; background: #eef2f5; border-radius: 4px; display: none;">
-                <div><strong>活动概况：</strong> <span id="event-desc">--</span></div>
-                <div style="margin-top: 5px;">🔥 <span id="event-stock-info"></span></div>
-            </div>
+            <div class="grid-container" id="event-list-container" aria-live="polite"></div>
 
-            <div id="records-view" style="display:none;">
-                <h4>📝 用户检测与票务明细 (成功购票清单)</h4>
-                <button id="btn-refresh" style="padding: 5px 15px; margin-bottom: 10px; cursor: pointer; background: #2196f3; color: white; border: none; border-radius: 4px;">刷新明细</button>
-                <ul id="records-container" class="record-list">
-                    <li class="record-item" style="color: #999;">暂无数据</li>
-                </ul>
+            <div id="detail-panel" role="region" aria-label="活动编辑面板">
+                <h3 id="panel-title" style="margin-top:0;">发布 / 编辑活动</h3>
+
+                <div id="admin-editor" style="margin-bottom:20px; padding:16px; border:1px dashed #1565c0; background:#fafafa; border-radius:8px;">
+                    <h4 style="margin-top:0; color:#1565c0;">⚙️ 发行与管理编辑</h4>
+                    <div class="form-grid">
+                        <input type="hidden" id="edit-event-id">
+                        <div class="form-group">
+                            <label for="edit-event-slot-id">活动 ID</label>
+                            <input type="text" id="edit-event-slot-id" placeholder="如 slot_202610_01">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-event-name">活动名称</label>
+                            <input type="text" id="edit-event-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-event-desc">活动描述</label>
+                            <textarea id="edit-event-desc" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-event-start-time">抢票开始时间</label>
+                            <input type="datetime-local" step="1" id="edit-event-start-time">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-event-end-time">抢票结束时间</label>
+                            <input type="datetime-local" step="1" id="edit-event-end-time">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-event-capacity">有效票数 / 增减量</label>
+                            <input type="number" id="edit-event-capacity" value="0">
+                            <small>新建时填入总量；编辑时填入增减值（如 +10 或 -5）。</small>
+                        </div>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button id="btn-publish-event" class="btn btn-success">🚀 确认发布 / 更新活动</button>
+                            <button id="btn-close-panel" class="btn btn-neutral" aria-label="关闭编辑面板">关闭</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="event-stats" style="display:none; margin-bottom:15px; padding:12px; background:#f5f5f5; border-radius:6px;">
+                    <div><strong>活动概况：</strong><span id="event-desc">--</span></div>
+                    <div style="margin-top:5px;">🔥 <span id="event-stock-info"></span></div>
+                </div>
+
+                <div id="records-view" style="display:none;">
+                    <h4>📝 票务明细（成功购票清单）</h4>
+                    <button id="btn-refresh" class="btn btn-refresh" style="margin-bottom:12px;" aria-label="刷新票务明细">刷新明细</button>
+                    <ul id="records-container" class="record-list" aria-live="polite">
+                        <li class="record-item" style="color:#888;">暂无数据</li>
+                    </ul>
+                </div>
             </div>
         </div>
-        </div>
-    </div>
-    
-    <!-- 引入专用的大盘管理脚本 -->
+    </main>
+
     <script type="module">
         import("/static/rules_fsm/js/fsm.js?t=" + new Date().getTime());
     </script>

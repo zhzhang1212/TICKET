@@ -7,113 +7,171 @@
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        body { font-family: sans-serif; background: #fafafa; padding: 20px;}
-        h1 { color: #2c3e50; text-align: center; }
-        .card-container { display: flex; gap: 20px; justify-content: center; margin-top: 40px; flex-wrap: wrap;}
-        .card { flex: 1; min-width: 280px; max-width: 350px; background: #fff; padding: 30px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; text-align: center; text-decoration: none; color: inherit;}
-        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.15);}
-        .card h2 { margin-top: 0; color: #4caf50; }
-        .card p { color: #555; line-height: 1.5; }
-        .card.event h2 { color: #e91e63; }
-        .card.space h2 { color: #2196f3; }
-        .card.fsm h2 { color: #ff9800; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: sans-serif; background: #fafafa; padding: 20px; margin: 0; }
+
+        /* 跳过导航（无障碍） */
+        .skip-link {
+            position: absolute; top: -40px; left: 8px; background: #2c3e50; color: #fff;
+            padding: 8px 14px; border-radius: 4px; text-decoration: none; font-weight: bold;
+            z-index: 9999; transition: top 0.2s;
+        }
+        .skip-link:focus { top: 8px; }
+
+        header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        h1 { color: #2c3e50; margin: 0; font-size: 1.5em; }
+
+        #user-profile {
+            background: #e8f5e9; padding: 8px 14px; border-radius: 20px;
+            font-size: 0.9em; font-weight: bold; color: #2e7d32; display: none;
+            align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        #logout-btn { color: #c62828; text-decoration: none; font-weight: bold; }
+        #logout-btn:hover { text-decoration: underline; }
+        #logout-btn:focus { outline: 2px solid #c62828; outline-offset: 2px; border-radius: 2px; }
+
+        /* 模块导航卡片 */
+        .card-container { display: flex; gap: 20px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+        .card {
+            flex: 1; min-width: 260px; max-width: 340px; background: #fff; padding: 28px 20px;
+            border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            cursor: pointer; transition: 0.25s; text-align: center;
+            text-decoration: none; color: inherit; display: block;
+            border: 2px solid transparent;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 8px 15px rgba(0,0,0,0.15); }
+        .card:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21,101,192,0.3); }
+        .card h2 { margin-top: 0; font-size: 1.15em; }
+        .card p { color: #555; line-height: 1.6; margin: 0; font-size: 0.92em; }
+        .card.event h2 { color: #c2185b; }
+        .card.space h2 { color: #1565c0; }
+        .card.fsm h2 { color: #e65100; }
+
+        /* 档案面板 */
+        #my-bookings { margin-top: 36px; display: none; }
+        #my-bookings h2 { color: #2c3e50; margin-bottom: 16px; }
+        #records-container {
+            background: #fff; padding: 24px; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex; gap: 20px; text-align: left; flex-wrap: wrap;
+        }
+        #records-container > div { flex: 1; min-width: 220px; }
+        #records-container h3 { margin-top: 0; font-size: 1em; }
+
+        /* 可点击票据条目 */
+        .ticket-item {
+            border-radius: 4px; padding: 10px; margin-bottom: 12px;
+            cursor: pointer; background: #fdfdfd; transition: background 0.15s;
+        }
+        .ticket-item:hover, .ticket-item:focus { background: #f0f0f0; outline: 2px solid #1565c0; }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.2em; }
+            .card { min-width: 100%; max-width: 100%; }
+            #records-container { flex-direction: column; padding: 16px; }
+        }
     </style>
 </head>
 <body>
-    <div id="app">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>智约校园 - 模块入口</h1>
-            <div id="user-profile" style="background:#e8f5e9; padding: 10px 15px; border-radius: 20px; font-size:0.9em; font-weight:bold; color:#4caf50; display:none;">
-                <span id="curr-username"></span> (信誉分: <span id="curr-reputation"></span>) 
-                <a href="#" id="logout-btn" style="margin-left:10px; color:red; text-decoration:none;">[退出]</a>
+    <a href="#main-content" class="skip-link">跳到主要内容</a>
+
+    <header>
+        <h1>智约校园 · 模块入口</h1>
+        <div id="user-profile" role="status" aria-live="polite">
+            <span id="curr-username"></span>
+            <span>（信誉分：<span id="curr-reputation"></span>）</span>
+            <a href="#" id="logout-btn" aria-label="退出登录">退出</a>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <nav aria-label="功能模块">
+            <div class="card-container">
+                <a href="/space" class="card space" aria-label="前往空间预订模块">
+                    <h2>🏫 空间预订</h2>
+                    <p>学术与体育空间预约，支持 5 分钟缓冲防冲突与组合场地预订。</p>
+                </a>
+                <a href="/event" class="card event" aria-label="前往活动秒杀模块">
+                    <h2>⚡ 活动秒杀</h2>
+                    <p>高并发讲座/活动抢票，Redis 削峰 + Celery 异步落库，绝不超卖。</p>
+                </a>
             </div>
-        </div>
-        
-        <div class="card-container">
-            <a href="/space" class="card space">
-                <h2>🏫 空间预订</h2>
-                <p>探索学术、体育等常规开放空间，体验平稳时段和防冲突管理及 5 分钟缓冲释放机制。</p>
-            </a>
+        </nav>
 
-            <a href="/event" class="card event">
-                <h2>⚡ 活动秒杀</h2>
-                <p>处理火爆讲座、限时放票等高并发场景，体验 Redis 队列削峰、 Celery 异步落库防御架构。</p>
-            </a>
-
-            <a href="/rules_fsm" class="card fsm">
-                <h2>⚙️ 规则与风控中心</h2>
-                <p>核心防御流转系统。动态计分、防重规则和状态机机制观测（不对外开放服务）。</p>
-            </a>
-        </div>
-
-        <!-- 👇 新增：个人档案数据展示面板 -->
-        <div id="my-bookings" style="margin-top: 40px; display: none;">
-            <h2 style="color: #2c3e50;">📝 我的档案与预定记录</h2>
-            <div id="records-container" style="background:#fff; padding:30px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); display:flex; gap: 20px; text-align: left;">
-                
-                <div style="flex:1;">
-                    <h3 style="color:#e91e63;">🎟️ 抢票活动凭证 (Event)</h3>
-                    <div id="records-tickets" style="color:#666; font-size:0.95em;">加载中...</div>
+        <section id="my-bookings" aria-label="我的档案与预约记录">
+            <h2>📝 我的档案与预约记录</h2>
+            <div id="records-container">
+                <div>
+                    <h3 style="color:#c2185b;">🎟️ 抢票凭证</h3>
+                    <div id="records-tickets" aria-live="polite">加载中...</div>
                 </div>
-
-                <div style="flex:1;">
-                    <h3 style="color:#2196f3;">🏫 预约空间房间 (Room)</h3>
-                    <div id="records-rooms" style="color:#666; font-size:0.95em;">加载中...</div>
+                <div>
+                    <h3 style="color:#1565c0;">🏫 学术空间</h3>
+                    <div id="records-rooms" aria-live="polite">加载中...</div>
                 </div>
-
-                <div style="flex:1;">
-                    <h3 style="color:#4caf50;">🏸 预约体育设施 (Venue)</h3>
-                    <div id="records-venues" style="color:#666; font-size:0.95em;">加载中...</div>
+                <div>
+                    <h3 style="color:#2e7d32;">🏸 体育设施</h3>
+                    <div id="records-venues" aria-live="polite">加载中...</div>
                 </div>
-
             </div>
-        </div>
+        </section>
+    </main>
 
-    </div>
     <script>
         async function fetchProfile(userId) {
             try {
                 const res = await fetch(`/api/v1/auth/profile/${userId}`);
                 const data = await res.json();
-                
-                // 处理并倒序排序 Tickets（按时间戳从新到旧）
-                const sortedTickets = data.tickets.sort((a, b) => {
-                    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-                    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-                    return timeB - timeA;
-                });
-                
-                let ticketHtml = sortedTickets.length === 0 ? "暂无历史记录<br><br>" : "";
-                sortedTickets.forEach(t => {
-                    const passColor = t.status.includes('成功') ? 'green' : (t.status.includes('失败') ? 'red' : 'darkorange');
-                    ticketHtml += `
-                        <div style="border-left: 4px solid ${passColor}; padding-left: 10px; margin-bottom: 12px; background: #fdfdfd; padding: 10px; cursor: pointer;" onclick="window.location.href='/event/ticket?order_id=${t.order_id}'" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#fdfdfd'">
-                            <strong>${t.event_name}</strong> [${t.slot_id}]<br>
-                            👉 状态: <span style="color:${passColor}; font-weight:bold;">${t.status}</span><br>
-                            👉 凭证: <span style="font-family:monospace;">${t.voucher || '--'}</span><br>
-                            ${t.timestamp ? `👉 时间: <span style="font-family:monospace; color:#888;">${t.timestamp}</span>` : ''}
-                        </div>
-                    `;
-                });
-                document.getElementById("records-tickets").innerHTML = ticketHtml;
 
-                // 学术空间
+                const sortedTickets = data.tickets.sort((a, b) => {
+                    return (b.timestamp ? new Date(b.timestamp).getTime() : 0)
+                         - (a.timestamp ? new Date(a.timestamp).getTime() : 0);
+                });
+
+                if (sortedTickets.length === 0) {
+                    document.getElementById("records-tickets").innerHTML = "<span style='color:#888;'>暂无历史记录</span>";
+                } else {
+                    const frag = document.createDocumentFragment();
+                    sortedTickets.forEach(t => {
+                        const color = t.status.includes('成功') ? '#2e7d32'
+                            : (t.status.includes('失败') || t.status.includes('关闭') ? '#c62828' : '#e65100');
+                        const div = document.createElement('div');
+                        div.className = 'ticket-item';
+                        div.setAttribute('tabindex', '0');
+                        div.setAttribute('role', 'button');
+                        div.setAttribute('aria-label', `查看订单 ${t.order_id}，状态：${t.status}`);
+                        div.style.borderLeft = `4px solid ${color}`;
+                        div.innerHTML = `
+                            <strong>${t.event_name}</strong> [${t.slot_id}]<br>
+                            状态：<span style="color:${color}; font-weight:bold;">${t.status}</span><br>
+                            凭证：<span style="font-family:monospace;">${t.voucher || '--'}</span>
+                            ${t.timestamp ? `<br><span style="font-size:0.85em;color:#555;">${t.timestamp}</span>` : ''}
+                        `;
+                        const nav = () => window.location.href = `/event/ticket?order_id=${t.order_id}`;
+                        div.addEventListener('click', nav);
+                        div.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') nav(); });
+                        frag.appendChild(div);
+                    });
+                    document.getElementById("records-tickets").textContent = "";
+                    document.getElementById("records-tickets").appendChild(frag);
+                }
+
                 document.getElementById("records-rooms").innerHTML = data.rooms.length === 0
-                    ? "暂无空间排期"
+                    ? "<span style='color:#888;'>暂无空间排期</span>"
                     : data.rooms.map(r => {
                         const info = typeof r === "string" ? JSON.parse(r) : r;
-                        const s = info.actual_start ? new Date(info.actual_start).toLocaleString("zh",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
-                        const e = info.actual_end   ? new Date(info.actual_end).toLocaleTimeString("zh",{hour:"2-digit",minute:"2-digit"}) : "";
-                        return `<p style="margin:4px 0;"><strong>${info.space_name||info.space_id}</strong><br><span style="font-size:0.85em;color:#888;">${s}–${e}</span></p>`;
+                        const s = info.actual_start ? new Date(info.actual_start).toLocaleString("zh", {month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
+                        const e = info.actual_end ? new Date(info.actual_end).toLocaleTimeString("zh", {hour:"2-digit",minute:"2-digit"}) : "";
+                        return `<p style="margin:4px 0;"><strong>${info.space_name||info.space_id}</strong><br><span style="font-size:0.85em;color:#555;">${s}–${e}</span></p>`;
                     }).join("");
-                // 体育设施
+
                 document.getElementById("records-venues").innerHTML = data.venues.length === 0
-                    ? "暂无场馆排期"
+                    ? "<span style='color:#888;'>暂无场馆排期</span>"
                     : data.venues.map(v => {
                         const info = typeof v === "string" ? JSON.parse(v) : v;
-                        return `<p style="margin:4px 0;"><strong>${info.space_id}</strong><br><span style="font-size:0.85em;color:#888;">${info.slot_date} ${info.slot_hour}:00</span></p>`;
+                        return `<p style="margin:4px 0;"><strong>${info.space_id}</strong><br><span style="font-size:0.85em;color:#555;">${info.slot_date} ${info.slot_hour}:00</span></p>`;
                     }).join("");
-                
+
                 document.getElementById("my-bookings").style.display = "block";
             } catch (e) {
                 console.error(e);
@@ -123,21 +181,21 @@
         document.addEventListener("DOMContentLoaded", () => {
             const userStr = localStorage.getItem("campus_user");
             if (!userStr) {
-                // 如果未登录，直接拦截踢回登录页
                 window.location.href = "/login";
-            } else {
-                try {
-                    const user = JSON.parse(userStr);
-                    document.getElementById('curr-username').innerText = user.username;
-                    document.getElementById('curr-reputation').innerText = user.reputation;
-                    document.getElementById('user-profile').style.display = 'block';
-                    fetchProfile(user.userId);
-                } catch(e) {
-                    window.location.href = "/login";
-                }
+                return;
+            }
+            try {
+                const user = JSON.parse(userStr);
+                document.getElementById('curr-username').textContent = user.username;
+                document.getElementById('curr-reputation').textContent = user.reputation;
+                document.getElementById('user-profile').style.display = 'flex';
+                fetchProfile(user.userId);
+            } catch (e) {
+                window.location.href = "/login";
             }
 
-            document.getElementById('logout-btn').addEventListener("click", () => {
+            document.getElementById('logout-btn').addEventListener("click", (e) => {
+                e.preventDefault();
                 localStorage.removeItem("campus_user");
                 window.location.href = "/login";
             });

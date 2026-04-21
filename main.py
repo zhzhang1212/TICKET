@@ -1,3 +1,5 @@
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -6,7 +8,23 @@ from routers.auth import router as auth_router
 from modules.space.router import router as space_router
 from modules.event.router import router as event_router
 
-app = FastAPI(title="智约校园")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from core.redis_db import init_redis
+    await init_redis()
+    try:
+        from core.database import init_db
+        await init_db()
+        await _seed_spaces()
+    except Exception as e:
+        logging.warning(f"[DB] PostgreSQL 未就绪，空间预订模块暂不可用：{e}")
+    yield
+    from core.redis_db import close_redis
+    await close_redis()
+
+
+app = FastAPI(title="智约校园", lifespan=lifespan)
 
 # 挂载静态文件与模板
 app.mount("/static/space", StaticFiles(directory="modules/space/static"), name="space_static")
@@ -25,9 +43,9 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(space_router, prefix="/api/v1")
 app.include_router(event_router, prefix="/api/v1")
 
+
 @app.get("/")
 async def index(request: Request):
-    # 返回前端骨架页面
     return templates.TemplateResponse(request=request, name="index.html")
 
 @app.get("/login")
@@ -50,30 +68,9 @@ async def event_detail_page(request: Request, slot_id: str = ""):
 async def event_ticket_page(request: Request, order_id: str = ""):
     return event_templates.TemplateResponse(request=request, name="ticket_detail.html")
 
-@app.get("/event/ticket")
-async def event_ticket_page(request: Request, order_id: str = ""):
-    return event_templates.TemplateResponse(request=request, name="ticket_detail.html")
-
 @app.get("/rules_fsm")
 async def fsm_page(request: Request):
     return fsm_templates.TemplateResponse(request=request, name="index.html")
-
-@app.on_event("startup")
-async def startup_event():
-    import logging
-    from core.redis_db import init_redis
-    await init_redis()
-    try:
-        from core.database import init_db
-        await init_db()
-        await _seed_spaces()
-    except Exception as e:
-        logging.warning(f"[DB] PostgreSQL 未就绪，空间预订模块暂不可用：{e}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    from core.redis_db import close_redis
-    await close_redis()
 
 
 async def _seed_spaces():
@@ -83,7 +80,6 @@ async def _seed_spaces():
     from sqlalchemy import select
 
     demo_spaces = [
-        # 学术空间
         Space(space_id="room_a101", name="A101 研讨室", space_type=SpaceType.academic,
               capacity=8, is_combinable=False, description="8人小型研讨室，配备投影仪"),
         Space(space_id="room_a102", name="A102 研讨室", space_type=SpaceType.academic,
@@ -94,7 +90,6 @@ async def _seed_spaces():
               capacity=20, is_combinable=False, description="20人中型会议室，配备投影仪"),
         Space(space_id="room_c301", name="C301 大型报告厅", space_type=SpaceType.academic,
               capacity=60, is_combinable=False, description="60人报告厅，适合讲座与答辩"),
-        # 体育设施
         Space(space_id="badminton_1", name="羽毛球场 1 号", space_type=SpaceType.sports,
               capacity=4, is_combinable=True, description="标准羽毛球场"),
         Space(space_id="badminton_2", name="羽毛球场 2 号", space_type=SpaceType.sports,

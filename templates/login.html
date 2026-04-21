@@ -7,48 +7,74 @@
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        body { font-family: sans-serif; background: #fafafa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
-        .login-card h2 { margin-top: 0; color: #2c3e50; }
-        .login-card input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        .login-card button { width: 100%; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
-        .login-card button:hover { background: #45a049; }
-        .error-msg { color: red; margin-top: 10px; font-size: 0.9em; display: none;}
-        .hint { font-size: 0.8em; color: #888; margin-top: 15px; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: sans-serif; background: #fafafa; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .login-card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 340px; }
+        .login-card h1 { margin-top: 0; color: #2c3e50; font-size: 1.4em; text-align: center; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+        .form-group label { font-size: 0.88em; font-weight: bold; color: #555; }
+        .form-group input {
+            padding: 10px; border: 1px solid #ccc; border-radius: 4px;
+            font-size: 1em; transition: border-color 0.2s; outline: none;
+        }
+        .form-group input:focus { border-color: #4caf50; box-shadow: 0 0 0 3px rgba(76,175,80,0.2); }
+        button[type="submit"] {
+            width: 100%; padding: 12px; background: #4caf50; color: white;
+            border: none; border-radius: 4px; font-weight: bold; font-size: 1em;
+            cursor: pointer; transition: 0.2s; margin-top: 6px;
+        }
+        button[type="submit"]:hover { background: #45a049; }
+        button[type="submit"]:focus { outline: 3px solid #1b5e20; outline-offset: 2px; }
+        .error-msg { color: #c62828; margin-top: 10px; font-size: 0.9em; display: none; padding: 8px; background: #fce4ec; border-radius: 4px; }
+        .hint { font-size: 0.8em; color: #555; margin-top: 15px; line-height: 1.5; }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <h2>身份验证</h2>
-        <input type="text" id="username" placeholder="请输入用户名" required>
-        <input type="password" id="password" placeholder="请输入密码" required>
-        <button id="login-btn">登录 / 自动注册</button>
-        <div id="error-msg" class="error-msg"></div>
-        <div class="hint">注：若系统查询无此账号，将按照当前输入的密码自动为您生成账号资料并初始化信用体系。</div>
+    <div class="login-card" role="main">
+        <h1>智约校园 · 身份验证</h1>
+        <form id="login-form" novalidate>
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" placeholder="请输入用户名"
+                       required autocomplete="username" aria-required="true">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" placeholder="请输入密码"
+                       required autocomplete="current-password" aria-required="true">
+            </div>
+            <button type="submit" id="login-btn">登录 / 自动注册</button>
+        </form>
+        <div id="error-msg" class="error-msg" role="alert" aria-live="assertive"></div>
+        <p class="hint">若系统查询无此账号，将按照当前输入的密码自动为您生成账号并初始化信用体系。</p>
     </div>
 
     <script>
-        document.getElementById('login-btn').addEventListener('click', async () => {
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             const errorDiv = document.getElementById('error-msg');
-            
+            const btn = document.getElementById('login-btn');
+
             if (!username || !password) {
-                errorDiv.innerText = "账号与密码不能为空";
+                errorDiv.textContent = "账号与密码不能为空";
                 errorDiv.style.display = "block";
                 return;
             }
 
+            btn.disabled = true;
+            btn.textContent = "验证中...";
+            errorDiv.style.display = "none";
+
             try {
                 const res = await fetch('/api/v1/auth/login', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-
                 const data = await res.json();
                 if (res.ok) {
-                    // 存储全局身份信标
                     localStorage.setItem('campus_user', JSON.stringify({
                         userId: data.user_id,
                         username: data.username,
@@ -56,12 +82,15 @@
                     }));
                     window.location.href = "/";
                 } else {
-                    errorDiv.innerText = data.detail || "请求失败";
+                    errorDiv.textContent = data.detail || "请求失败";
                     errorDiv.style.display = "block";
                 }
             } catch (err) {
-                errorDiv.innerText = "网络异常";
+                errorDiv.textContent = "网络异常，请稍后重试";
                 errorDiv.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "登录 / 自动注册";
             }
         });
     </script>

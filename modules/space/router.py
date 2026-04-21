@@ -375,6 +375,56 @@ async def cancel_booking(
 
 # ── 用户预约列表 ──────────────────────────────────────────────────────
 
+@router.get("/admin/bookings", summary="【管理员接口】获取全部预约记录")
+async def get_all_bookings(db: AsyncSession = Depends(get_db)):
+    academic_rows = (await db.execute(
+        select(AcademicBooking, Space.name).join(
+            Space, AcademicBooking.space_id == Space.space_id
+        ).order_by(AcademicBooking.actual_start.desc())
+    )).all()
+
+    sports_rows = (await db.execute(
+        select(SportsBooking).order_by(
+            SportsBooking.slot_date.desc(), SportsBooking.slot_hour
+        )
+    )).scalars().all()
+
+    academic_out = [
+        AcademicBookingOut(
+            booking_id=row.AcademicBooking.booking_id,
+            space_id=row.AcademicBooking.space_id,
+            space_name=row.name,
+            user_id=row.AcademicBooking.user_id,
+            actual_start=row.AcademicBooking.actual_start,
+            actual_end=row.AcademicBooking.actual_end,
+            status=row.AcademicBooking.status.value,
+        )
+        for row in academic_rows
+    ]
+
+    groups: dict = {}
+    for b in sports_rows:
+        key = b.group_booking_id or b.booking_id
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(b)
+
+    sports_out = [
+        SportsBookingOut(
+            booking_ids=[b.booking_id for b in bookings],
+            group_booking_id=bookings[0].group_booking_id,
+            space_ids=[b.space_id for b in bookings],
+            user_id=bookings[0].user_id,
+            slot_date=bookings[0].slot_date,
+            slot_hour=bookings[0].slot_hour,
+            status=bookings[0].status.value,
+        )
+        for bookings in groups.values()
+    ]
+
+    return {"academic": academic_out, "sports": sports_out}
+
+
 @router.get("/bookings/user/{user_id}", response_model=UserBookingsOut, summary="获取用户所有预约")
 async def get_user_bookings(user_id: str, db: AsyncSession = Depends(get_db)):
     academic_rows = (await db.execute(
