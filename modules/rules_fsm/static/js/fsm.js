@@ -26,7 +26,8 @@ function initSpacePanels() {
         return `${y}-${m}-${day}`;
     };
 
-    const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
+    const DEFAULT_ROOM_HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
+    const VENUE_HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
     let roomSelectedDate = fmtDate(new Date());
     let venueSelectedDate = fmtDate(new Date());
 
@@ -92,9 +93,25 @@ function initSpacePanels() {
             const dateOptions = [...new Set([fmtDate(new Date()), ...bookingDates])].sort();
             const dayStart = new Date(`${roomSelectedDate}T00:00:00`);
 
+            // 学术空间支持全天预约，这里动态扩展小时列，避免夜间预约在大盘“看不见”。
+            const bookedHours = new Set();
+            rows
+                .filter((b) => (b.actual_start || "").slice(0, 10) === roomSelectedDate)
+                .forEach((b) => {
+                    const bStart = new Date(b.actual_start);
+                    const bEnd = new Date(b.actual_end);
+                    const startHour = Math.max(0, Math.floor(bStart.getHours()));
+                    const endHour = Math.min(24, Math.ceil(bEnd.getHours()));
+                    for (let h = startHour; h < endHour; h += 1) {
+                        bookedHours.add(h);
+                    }
+                });
+            const roomHours = [...new Set([...DEFAULT_ROOM_HOURS, ...Array.from(bookedHours)])]
+                .sort((a, b) => a - b);
+
             const tableRows = spaces.map((s) => {
                 const related = rows.filter((b) => b.space_id === s.space_id);
-                const cells = HOURS.map((hour) => {
+                const cells = roomHours.map((hour) => {
                     const slotStart = new Date(dayStart.getTime() + hour * 60 * 60 * 1000);
                     const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
                     const hit = related.filter((b) => {
@@ -127,7 +144,7 @@ function initSpacePanels() {
                 ${buildDateToolbar(dateOptions, roomSelectedDate, "room")}
                 ${renderMatrixTable(
                 tableRows,
-                HOURS.map((h) => `${h}:00`),
+                roomHours.map((h) => `${h}:00`),
                 "房间预约总览",
                 `日期：${roomSelectedDate}（每行一个房间，格子内为预约人；鼠标悬停可看预约时段）`
                 )}
@@ -191,7 +208,7 @@ function initSpacePanels() {
                 const slots = slotDataList[idx] || [];
                 const slotMap = new Map(slots.map((x) => [x.hour, x.available]));
 
-                const cells = HOURS.map((hour) => {
+                const cells = VENUE_HOURS.map((hour) => {
                     const key = `${s.space_id}|${venueSelectedDate}|${hour}`;
                     const available = slotMap.get(hour);
                     const booked = available === false;
@@ -220,7 +237,7 @@ function initSpacePanels() {
                 ${buildDateToolbar(dateOptions, venueSelectedDate, "venue")}
                 ${renderMatrixTable(
                 tableRows,
-                HOURS.map((h) => `${h}:00`),
+                VENUE_HOURS.map((h) => `${h}:00`),
                 "场地预约总览",
                 `日期：${venueSelectedDate}（每行一个场地，格子内为预约人；鼠标悬停可看订单信息）`
                 )}
