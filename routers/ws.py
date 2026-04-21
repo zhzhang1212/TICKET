@@ -8,8 +8,14 @@ router = APIRouter()
 @router.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
     """【实时通信】监听各自用户的异步处理结果"""
-    await websocket.accept()
     redis_client = await get_redis()
+    token = websocket.query_params.get("token", "")
+    bound_user_id = await redis_client.get(f"ws_token:{token}") if token else None
+    if not token or bound_user_id != user_id:
+        await websocket.close(code=1008, reason="ws 鉴权失败")
+        return
+
+    await websocket.accept()
     pubsub = redis_client.pubsub()
     await pubsub.subscribe(f"notify_{user_id}")
     

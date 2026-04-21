@@ -2,9 +2,11 @@ import time
 import json
 import logging
 import os
+from typing import Optional
 from celery import Celery
 import redis
 from modules.rules_fsm.fsm.order_fsm import OrderStateMachine
+from core.redis_db import get_redis
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 
@@ -15,6 +17,89 @@ celery_app = Celery(
 )
 
 sync_redis = redis.Redis.from_url(f"redis://{REDIS_HOST}:6379/1", decode_responses=True)
+
+
+_LUA_ORDER_CAS = """
+local exists = redis.call('EXISTS', KEYS[1])
+if exists == 0 then return {0, 'not_found'} end
+
+local cur_status = redis.call('HGET', KEYS[1], 'status')
+local cur_version = tonumber(redis.call('HGET', KEYS[1], 'version') or '-1')
+
+if cur_status ~= ARGV[1] then return {0, 'status_mismatch'} end
+if cur_version ~= tonumber(ARGV[2]) then return {0, 'version_mismatch'} end
+
+redis.call('HSET', KEYS[1], 'status', ARGV[3])
+redis.call('HSET', KEYS[1], 'version', tostring(cur_version + 1))
+
+if ARGV[4] ~= '' then redis.call('HSET', KEYS[1], 'voucher', ARGV[4]) end
+if ARGV[5] ~= '' then redis.call('HSET', KEYS[1], 'cancel_time', ARGV[5]) end
+
+return {1, 'ok'}
+"""
+
+
+async def create_order_record(
+    order_id: str,
+    user_id: str,
+    slot_id: str,
+    event_name: str,
+    status: str,
+    version: int,
+    ticket_ts: str,
+) -> bool:
+    """创建订单记录（幂等 + 原子占位），供抢票主流程兜底。"""
+    redis_client = await get_redis()
+    key = f"event_order:{order_id}"
+
+    created = await redis_client.hsetnx(key, "_created", "1")
+    if not created:
+        return False
+
+    await redis_client.hset(
+        key,
+        mapping={
+            "order_id": order_id,
+            "user_id": user_id,
+            "slot_id": slot_id,
+            "event_name": event_name,
+            "status": status,
+            "version": str(version),
+            "ticket_ts": ticket_ts,
+        },
+    )
+    await redis_client.expire(key, 24 * 3600)
+    return True
+
+
+async def cas_transition_order(
+    order_id: str,
+    expected_status: str,
+    expected_version: int,
+    next_status: str,
+    voucher: Optional[str] = None,
+    cancel_time: Optional[str] = None,
+) -> tuple[bool, str]:
+    """订单状态 CAS（乐观锁），防止支付/取消/超时竞态写穿。"""
+    redis_client = await get_redis()
+    key = f"event_order:{order_id}"
+
+    result = await redis_client.eval(
+        _LUA_ORDER_CAS,
+        1,
+        key,
+        expected_status,
+        str(expected_version),
+        next_status,
+        voucher or "",
+        cancel_time or "",
+    )
+
+    ok = bool(result and int(result[0]) == 1)
+    reason = result[1] if result and len(result) > 1 else "unknown"
+    if isinstance(reason, bytes):
+        reason = reason.decode()
+    return ok, str(reason)
 
 
 @celery_app.task(bind=True)

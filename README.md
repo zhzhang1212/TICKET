@@ -103,7 +103,8 @@
 - **核心目标**：利用 Redis + Celery 削峰，抗击并发流量洪峰。
 - **文件边界**：
   - `modules/event/schemas.py`：秒杀入参校验模型。
-  - `modules/event/router.py`：仅暴露 `/api/v1/events` 路由组。绝对禁止在秒杀层直接操作 DB，必须向同级的 `tasks.py` 消费者推送处理队列。
+   - `modules/event/router.py`：仅暴露 `/api/v1/events` 路由组。主流程通过 Redis 预扣与 FSM 流转执行并发控制，并调用同级 `tasks.py` 提供的 DB CAS 封装。
+   - `modules/event/tasks.py`：除 Celery 消费外，包含事件订单表与 DB CAS 乐观锁封装，用于双层乐观锁一致性保障。
 - **零耦合证明**：独立成包后，不需要也绝对无法和空间业务进行深层状态缠绕。资源争夺决断由底层的 `core.redis_db` 提供原生 Lua 脚本支持。
 
 ### 模块 C：复杂状态机与动态规则引擎 (`modules/rules_fsm/`)
@@ -211,8 +212,7 @@ Web 标准
 DevOps 与自
 动化验收容器化部署（Docker）完整度、CI/CD 流水线配置、自动化
 极端边界测试用例的覆盖率与通过率。15
-创新性与展示AI 工具的创新应用（如自然语言搜空教室）、文档规范性、
-答辩表现。10
+创新性与展示AI 工具的创新应用（如自然语言搜空教室）、文档规范性。10
 表达
 值
 七、 边界与规则说明
@@ -227,3 +227,13 @@ AI 辅助工具：允许并鼓励使用 AI 编程助手（Claude, GitHub Copilot
 底层数据结构必须具备接入真实数据的合理性与落地能力
 
 ###需要在最后阶段补充dockerfile以及CI/CD配置###
+
+Dockerfile 不是多阶段构建
+Dockerfile:1 到 Dockerfile:12 是单阶段镜像，且直接 COPY . .。
+赛题写了“必须包含多阶段构建 Dockerfile”，当前不满足硬性描述。
+
+readme修改
+
+安全基线不达标：密码明文存储
+routers/auth.py:46 直接把 req.password 写入 Redis，routers/auth.py:27 明文比对。
+赛题要求参考 OWASP Top 10，这块会被明确指出。

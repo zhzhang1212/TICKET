@@ -10,6 +10,11 @@ if (!userSession) {
 }
 const userId = userSession.userId;
 const username = userSession.username;
+const wsToken = userSession.wsToken;
+if (!wsToken) {
+    alert("登录令牌缺失，请重新登录。");
+    window.location.href = "/login";
+}
 let globalTimer = null;
 function setupActivityClock(info) {
     if (globalTimer) clearInterval(globalTimer);
@@ -154,7 +159,9 @@ function initDetail() {
     fetchEventDetail(currentEventId);
 
     statusMsg.innerText = `用户 ${username}`;
-    wsManager = new WebSocketManager(`${WS_URL}/${userId}`);
+    wsManager = new WebSocketManager(
+        `${WS_URL}/${encodeURIComponent(userId)}?token=${encodeURIComponent(wsToken)}`
+    );
     wsManager.connect(statusMsg);
 
     const oldOnMessage = wsManager.socket.onmessage;

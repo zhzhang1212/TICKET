@@ -78,7 +78,8 @@
                     localStorage.setItem('campus_user', JSON.stringify({
                         userId: data.user_id,
                         username: data.username,
-                        reputation: data.reputation
+                        reputation: data.reputation,
+                        wsToken: data.ws_token
                     }));
                     window.location.href = "/";
                 } else {

@@ -10,6 +10,11 @@ if (!userSession) {
 }
 const userId = userSession.userId;
 const username = userSession.username;
+const wsToken = userSession.wsToken;
+if (!wsToken) {
+    alert("登录令牌缺失，请重新登录。");
+    window.location.href = "/login";
+}
 
 const urlParams = new URLSearchParams(window.location.search);
 let currentOrderId = urlParams.get('order_id') || "";
@@ -87,7 +92,7 @@ function initTicketDetail() {
                     btnCancel.style.display = "inline-block";
                 }
                 
-                if (statusStr === "待支付") {
+                if (statusStr === "待支付 (请在5分钟内完成)") {
                     btnPay.style.display = "inline-block";
                     payCountdownZone.style.display = "block";
                     
@@ -126,7 +131,9 @@ function initTicketDetail() {
 
     // Setup websocket to get real-time updates
     systemMsg.innerText = `用户 ${username}`;
-    wsManager = new WebSocketManager(`${WS_URL}/${userId}`);
+    wsManager = new WebSocketManager(
+        `${WS_URL}/${encodeURIComponent(userId)}?token=${encodeURIComponent(wsToken)}`
+    );
     wsManager.connect(systemMsg);
 
     const oldOnMessage = wsManager.socket.onmessage;
