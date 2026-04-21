@@ -19,92 +19,240 @@ function initSpacePanels() {
         if (navGrid) navGrid.style.display = "grid";
     };
 
-    const fmtDateTime = (iso) => {
-        if (!iso) return "--";
-        const d = new Date(iso);
-        return d.toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-");
+    const fmtDate = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
     };
 
-    const statusClass = (s) => {
-        if (!s) return "";
-        if (s === "confirmed") return "status-confirmed";
-        if (s === "cancelled") return "status-cancelled";
-        return "status-pending";
+    const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
+    let roomSelectedDate = fmtDate(new Date());
+    let venueSelectedDate = fmtDate(new Date());
+
+    const renderMatrixTable = (rows, headers, title, subtitle) => {
+        return `
+            <div style="margin-bottom:10px;">
+                <h3 style="margin:0; color:#1565c0;">${title}</h3>
+                <p style="margin:6px 0 0; color:#666; font-size:0.9em;">${subtitle}</p>
+            </div>
+            <div style="overflow:auto; border-radius:8px; border:1px solid #d9e2ef; background:#fff;">
+                <table style="width:100%; min-width:1100px; border-collapse:collapse; font-size:0.86em;">
+                    <thead>
+                        <tr style="background:#eef4ff;">
+                            <th style="position:sticky; left:0; background:#eef4ff; z-index:2; border:1px solid #d9e2ef; padding:8px; min-width:180px; text-align:left;">资源</th>
+                            ${headers.map((h) => `<th style="border:1px solid #d9e2ef; padding:8px; min-width:90px;">${h}</th>`).join("")}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
     };
 
-    const statusLabel = (s) => {
-        const map = { confirmed: "已确认", cancelled: "已取消", pending: "待确认" };
-        return map[s] || s;
+    const buildDateToolbar = (dates, selected, prefix) => {
+        if (!dates.length) return "";
+        return `
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                ${dates.map((d) => `
+                    <button type="button" data-${prefix}-date="${d}"
+                        style="padding:6px 10px; border-radius:16px; border:1px solid ${d === selected ? '#1565c0' : '#c7d2e3'}; background:${d === selected ? '#e8f1ff' : '#fff'}; color:${d === selected ? '#1565c0' : '#455a64'}; cursor:pointer; font-size:0.85em;">
+                        ${d}
+                    </button>
+                `).join("")}
+            </div>
+        `;
     };
 
-    const loadSpaceData = async (container, type) => {
-        if (!container) return;
-        container.innerHTML = '<p style="color:#888;">正在加载...</p>';
+    const loadRoomOverview = async () => {
+        if (!roomContainer) return;
+        roomContainer.innerHTML = '<p style="color:#888;">正在加载房间矩阵...</p>';
+
         try {
-            const r = await fetch("/api/v1/spaces/admin/bookings");
-            if (!r.ok) { container.innerHTML = '<p style="color:red;">加载失败，请重试。</p>'; return; }
-            const data = await r.json();
-            const rows = type === "academic" ? (data.academic || []) : (data.sports || []);
-            if (rows.length === 0) {
-                container.innerHTML = '<p class="empty-hint">暂无预约记录。</p>';
+            const [spaceResp, bookingResp] = await Promise.all([
+                fetch("/api/v1/spaces/academic"),
+                fetch("/api/v1/spaces/admin/bookings"),
+            ]);
+
+            if (!spaceResp.ok || !bookingResp.ok) {
+                roomContainer.innerHTML = '<p style="color:red;">加载失败，请稍后重试。</p>';
                 return;
             }
-            const wrapper = document.createElement("div");
-            wrapper.className = "table-wrapper";
-            const table = document.createElement("table");
-            table.className = "admin-table";
 
-            if (type === "academic") {
-                table.innerHTML = '<thead><tr><th>预约ID</th><th>用户</th><th>场地</th><th>开始时间</th><th>结束时间</th><th>状态</th></tr></thead>';
-                const tbody = document.createElement("tbody");
-                rows.forEach(row => {
-                    const tr = document.createElement("tr");
-                    const tdId = document.createElement("td"); tdId.textContent = row.booking_id;
-                    const tdUser = document.createElement("td"); tdUser.textContent = row.user_id || "--";
-                    const tdSpace = document.createElement("td"); tdSpace.textContent = row.space_name || row.space_id;
-                    const tdStart = document.createElement("td"); tdStart.textContent = fmtDateTime(row.actual_start);
-                    const tdEnd = document.createElement("td"); tdEnd.textContent = fmtDateTime(row.actual_end);
-                    const tdSt = document.createElement("td");
-                    tdSt.textContent = statusLabel(row.status);
-                    tdSt.className = statusClass(row.status);
-                    tr.append(tdId, tdUser, tdSpace, tdStart, tdEnd, tdSt);
-                    tbody.appendChild(tr);
-                });
-                table.appendChild(tbody);
-            } else {
-                table.innerHTML = '<thead><tr><th>预约ID</th><th>用户</th><th>场地</th><th>日期</th><th>时段</th><th>状态</th></tr></thead>';
-                const tbody = document.createElement("tbody");
-                rows.forEach(row => {
-                    const tr = document.createElement("tr");
-                    const tdId = document.createElement("td"); tdId.textContent = (row.group_booking_id || row.booking_ids[0]);
-                    const tdUser = document.createElement("td"); tdUser.textContent = row.user_id || "--";
-                    const tdSpace = document.createElement("td"); tdSpace.textContent = row.space_ids.join(", ");
-                    const tdDate = document.createElement("td"); tdDate.textContent = row.slot_date;
-                    const tdHour = document.createElement("td"); tdHour.textContent = `${row.slot_hour}:00`;
-                    const tdSt = document.createElement("td");
-                    tdSt.textContent = statusLabel(row.status);
-                    tdSt.className = statusClass(row.status);
-                    tr.append(tdId, tdUser, tdSpace, tdDate, tdHour, tdSt);
-                    tbody.appendChild(tr);
-                });
-                table.appendChild(tbody);
+            const spaces = await spaceResp.json();
+            const bookingData = await bookingResp.json();
+            const rows = (bookingData.academic || []).filter((b) => b.status === "confirmed");
+
+            const bookingDates = [...new Set(rows.map((b) => (b.actual_start || "").slice(0, 10)).filter(Boolean))].sort();
+            if (bookingDates.length > 0 && !bookingDates.includes(roomSelectedDate)) {
+                roomSelectedDate = bookingDates[0];
             }
-            wrapper.appendChild(table);
-            container.innerHTML = "";
-            container.appendChild(wrapper);
+            const dateOptions = [...new Set([fmtDate(new Date()), ...bookingDates])].sort();
+            const dayStart = new Date(`${roomSelectedDate}T00:00:00`);
+
+            const tableRows = spaces.map((s) => {
+                const related = rows.filter((b) => b.space_id === s.space_id);
+                const cells = HOURS.map((hour) => {
+                    const slotStart = new Date(dayStart.getTime() + hour * 60 * 60 * 1000);
+                    const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+                    const hit = related.filter((b) => {
+                        const bStart = new Date(b.actual_start);
+                        const bEnd = new Date(b.actual_end);
+                        return bStart < slotEnd && bEnd > slotStart;
+                    });
+
+                    if (hit.length === 0) {
+                        return '<td style="border:1px solid #e5eaf3; background:#eaf7ea; color:#2e7d32; text-align:center; padding:6px;">空闲</td>';
+                    }
+
+                    const users = [...new Set(hit.map((x) => x.user_id || "未知"))].join("/");
+                    const detail = hit.map((x) => `${x.user_id || "未知"} ${x.actual_start.slice(11, 16)}-${x.actual_end.slice(11, 16)}`).join("; ");
+                    return `<td title="${detail}" style="border:1px solid #e5eaf3; background:#fdeaea; color:#c62828; text-align:center; padding:6px; font-weight:600;">${users}</td>`;
+                }).join("");
+
+                return `
+                    <tr>
+                        <td style="position:sticky; left:0; background:#fff; z-index:1; border:1px solid #e5eaf3; padding:8px;">
+                            <strong style="color:#1a237e;">${s.name || s.space_id}</strong><br>
+                            <span style="font-size:0.82em; color:#777;">${s.space_id}</span>
+                        </td>
+                        ${cells}
+                    </tr>
+                `;
+            }).join("");
+
+            roomContainer.innerHTML = `
+                ${buildDateToolbar(dateOptions, roomSelectedDate, "room")}
+                ${renderMatrixTable(
+                tableRows,
+                HOURS.map((h) => `${h}:00`),
+                "房间预约总览",
+                `日期：${roomSelectedDate}（每行一个房间，格子内为预约人；鼠标悬停可看预约时段）`
+                )}
+            `;
+
+            roomContainer.querySelectorAll("[data-room-date]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const nextDate = btn.getAttribute("data-room-date");
+                    if (!nextDate || nextDate === roomSelectedDate) return;
+                    roomSelectedDate = nextDate;
+                    loadRoomOverview();
+                });
+            });
         } catch (e) {
-            console.error("加载空间预约数据失败", e);
-            container.innerHTML = '<p style="color:red;">网络异常，无法加载数据。</p>';
+            console.error("加载房间状态失败", e);
+            roomContainer.innerHTML = '<p style="color:red;">网络异常，无法加载房间状态。</p>';
+        }
+    };
+
+    const loadVenueOverview = async () => {
+        if (!venueContainer) return;
+        venueContainer.innerHTML = '<p style="color:#888;">正在加载场地矩阵...</p>';
+
+        try {
+            const [spaceResp, bookingResp] = await Promise.all([
+                fetch("/api/v1/spaces/sports"),
+                fetch("/api/v1/spaces/admin/bookings"),
+            ]);
+
+            if (!spaceResp.ok || !bookingResp.ok) {
+                venueContainer.innerHTML = '<p style="color:red;">加载失败，请稍后重试。</p>';
+                return;
+            }
+
+            const spaces = await spaceResp.json();
+            const bookingData = await bookingResp.json();
+            const bookings = (bookingData.sports || []).filter((b) => b.status === "confirmed");
+
+            const bookingDates = [...new Set(bookings.map((b) => b.slot_date).filter(Boolean))].sort();
+            if (bookingDates.length > 0 && !bookingDates.includes(venueSelectedDate)) {
+                venueSelectedDate = bookingDates[0];
+            }
+            const dateOptions = [...new Set([fmtDate(new Date()), ...bookingDates])].sort();
+
+            const userMap = new Map();
+            bookings.forEach((b) => {
+                (b.space_ids || []).forEach((sid) => {
+                    userMap.set(`${sid}|${b.slot_date}|${b.slot_hour}`, {
+                        user_id: b.user_id || "未知",
+                        booking_id: b.group_booking_id || (b.booking_ids ? b.booking_ids[0] : "--"),
+                    });
+                });
+            });
+
+            const slotRespList = await Promise.all(
+                spaces.map((s) => fetch(`/api/v1/spaces/sports/${s.space_id}/slots?slot_date=${venueSelectedDate}`))
+            );
+            const slotDataList = await Promise.all(slotRespList.map(async (r) => (r.ok ? r.json() : [])));
+
+            const tableRows = spaces.map((s, idx) => {
+                const slots = slotDataList[idx] || [];
+                const slotMap = new Map(slots.map((x) => [x.hour, x.available]));
+
+                const cells = HOURS.map((hour) => {
+                    const key = `${s.space_id}|${venueSelectedDate}|${hour}`;
+                    const available = slotMap.get(hour);
+                    const booked = available === false;
+                    if (!booked) {
+                        return '<td style="border:1px solid #e5eaf3; background:#eaf7ea; color:#2e7d32; text-align:center; padding:6px;">空闲</td>';
+                    }
+
+                    const info = userMap.get(key);
+                    const user = info ? info.user_id : "未知";
+                    const tip = info ? `预约人: ${info.user_id} | 订单: ${info.booking_id}` : "预约人未知";
+                    return `<td title="${tip}" style="border:1px solid #e5eaf3; background:#fdeaea; color:#c62828; text-align:center; padding:6px; font-weight:600;">${user}</td>`;
+                }).join("");
+
+                return `
+                    <tr>
+                        <td style="position:sticky; left:0; background:#fff; z-index:1; border:1px solid #e5eaf3; padding:8px;">
+                            <strong style="color:#1a237e;">${s.name || s.space_id}</strong><br>
+                            <span style="font-size:0.82em; color:#777;">${s.space_id}</span>
+                        </td>
+                        ${cells}
+                    </tr>
+                `;
+            }).join("");
+
+            venueContainer.innerHTML = `
+                ${buildDateToolbar(dateOptions, venueSelectedDate, "venue")}
+                ${renderMatrixTable(
+                tableRows,
+                HOURS.map((h) => `${h}:00`),
+                "场地预约总览",
+                `日期：${venueSelectedDate}（每行一个场地，格子内为预约人；鼠标悬停可看订单信息）`
+                )}
+            `;
+
+            venueContainer.querySelectorAll("[data-venue-date]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const nextDate = btn.getAttribute("data-venue-date");
+                    if (!nextDate || nextDate === venueSelectedDate) return;
+                    venueSelectedDate = nextDate;
+                    loadVenueOverview();
+                });
+            });
+        } catch (e) {
+            console.error("加载场地状态失败", e);
+            venueContainer.innerHTML = '<p style="color:red;">网络异常，无法加载场地状态。</p>';
         }
     };
 
     if (btnRoomMgr) {
-        const open = () => { showSection(roomSection); loadSpaceData(roomContainer, "academic"); };
+        const open = () => {
+            showSection(roomSection);
+            loadRoomOverview();
+        };
         btnRoomMgr.onclick = open;
         btnRoomMgr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") open(); });
     }
     if (btnVenueMgr) {
-        const open = () => { showSection(venueSection); loadSpaceData(venueContainer, "sports"); };
+        const open = () => {
+            showSection(venueSection);
+            loadVenueOverview();
+        };
         btnVenueMgr.onclick = open;
         btnVenueMgr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") open(); });
     }

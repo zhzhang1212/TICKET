@@ -24,9 +24,5 @@ async def init_db():
 
 
 async def get_db() -> AsyncSession:
-    try:
-        async with AsyncSessionLocal() as session:
-            yield session
-    except Exception:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=503, detail="数据库暂不可用，请稍后再试")
+    async with AsyncSessionLocal() as session:
+        yield session
