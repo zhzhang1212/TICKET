@@ -299,6 +299,14 @@ function initFsmPanel() {
 
     if(btnPublishEvent) {
         btnPublishEvent.onclick = async () => {
+            const adminKeyInput = document.getElementById("admin-key-input");
+            const adminKey = adminKeyInput ? adminKeyInput.value.trim() : "";
+            
+            if (!adminKey) {
+                alert("❌ 请先输入管理员密钥！");
+                return;
+            }
+
             const mode = editEventId ? editEventId.value : "";
             const slot_id = editEventSlotId ? editEventSlotId.value : "";
             const name = editEventName ? editEventName.value : "";
@@ -318,7 +326,10 @@ function initFsmPanel() {
                 // POST to create
                 const r = await fetch("/api/v1/events/", {
                     method: "POST",
-                    headers: {"Content-Type": "application/json"},
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Admin-Key": adminKey
+                    },
                     body: JSON.stringify({
                         slot_id: slot_id,
                         event_name: name,
@@ -329,13 +340,14 @@ function initFsmPanel() {
                     })
                 });
                 if (r.ok) {
-                    alert("发布成功！");
+                    alert("✅ 发布成功！");
                     if (detailPanel) detailPanel.style.display = "none";
                     if (listContainer) listContainer.style.display = "grid";
                     loadEvents();
+                    if (adminKeyInput) adminKeyInput.value = ""; // Clear key after success
                 } else {
                     const err = await r.json();
-                    alert("发布失败：" + JSON.stringify(err));
+                    alert("❌ 发布失败：" + (err.detail || JSON.stringify(err)));
                 }
             } else {
                 // PATCH to update
@@ -350,17 +362,21 @@ function initFsmPanel() {
                 }
                 const r = await fetch(`/api/v1/events/${slot_id}`, {
                     method: "PATCH",
-                    headers: {"Content-Type": "application/json"},
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Admin-Key": adminKey
+                    },
                     body: JSON.stringify(payload)
                 });
                 if (r.ok) {
-                    alert("更改保存成功！");
+                    alert("✅ 更改保存成功！");
                     if (detailPanel) detailPanel.style.display = "none";
                     if (listContainer) listContainer.style.display = "grid";
                     loadEvents();
+                    if (adminKeyInput) adminKeyInput.value = ""; // Clear key after success
                 } else {
                     const err = await r.json();
-                    alert("更新失败: " + JSON.stringify(err));
+                    alert("❌ 更新失败: " + (err.detail || JSON.stringify(err)));
                 }
             }
         };
