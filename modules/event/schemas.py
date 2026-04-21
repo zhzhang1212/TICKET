@@ -7,7 +7,6 @@ class EventCreate(BaseModel):
     event_name: str
     description: str
     slot_id: str
-    voucher: Optional[str] = None
     capacity: int
 
 class EventUpdate(BaseModel):
@@ -29,7 +28,6 @@ class EventDetailResponse(BaseModel):
     end_time: Optional[str] = None
     cancel_penalty_remain_sec: Optional[int] = 0
     slot_id: str
-    voucher: Optional[str] = None
     event_name: str
     description: str
     total_capacity: int
@@ -40,10 +38,9 @@ class EventTicketRequest(BaseModel):
     user_id: str
     resource_id: str
     slot_id: str
-    voucher: Optional[str] = None       # 例如："slot_20260418_1430" (按30分钟碎片化的时间片ID)
 
 class EventTicketResponse(BaseModel):
     status: str
     message: str
     slot_id: str
-    voucher: Optional[str] = None
+    order_id: Optional[str] = None

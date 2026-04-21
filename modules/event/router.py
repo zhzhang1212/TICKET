@@ -175,10 +175,7 @@ async def update_event(slot_id: str, event: EventUpdate):
     return {"message": "更新成功"}
 
 
-class EventTicketResponse2(EventTicketResponse):
-    order_id: Optional[str] = None
-
-@router.post("/seckill", response_model=EventTicketResponse2, summary="【用户接口】热门活动的门票抢注")
+@router.post("/seckill", response_model=EventTicketResponse, summary="【用户接口】热门活动的门票抢注")
 async def seckill_event_ticket(request: EventTicketRequest):
     redis = await get_redis()
 
@@ -210,7 +207,7 @@ async def seckill_event_ticket(request: EventTicketRequest):
         args=[request.user_id, request.slot_id, order_id], countdown=300
     )
 
-    return EventTicketResponse2(
+    return EventTicketResponse(
         status="success",
         message="抢票初步成功！请在5分钟内完成支付。",
         slot_id=request.slot_id,
