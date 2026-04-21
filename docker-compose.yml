@@ -28,6 +28,8 @@ services:
 
   web:
     build: .
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     environment:
@@ -42,6 +44,8 @@ services:
   worker:
     build: .
     command: celery -A modules.event.tasks worker --loglevel=info
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/smartcampus
       REDIS_HOST: redis
