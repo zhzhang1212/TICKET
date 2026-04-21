@@ -24,27 +24,50 @@
         <a href="/" class="back-link">← 返回首页</a>
         <h1 style="color: #2c3e50;">底层规则 FSM 与 管理大盘</h1>
         
-        <div class="grid-container" id="main-dashboard">
-            <div class="card" onclick="alert('房间管理模块尚未接入此大盘面板。')">
+        <nav class="grid-container" id="main-dashboard" aria-label="管理模块导航">
+            <div class="card" id="btn-room-mgr" tabindex="0" role="button" aria-label="打开房间管理">
                 <h3>🚪 房间管理</h3>
                 <p style="color:#888;">学术空间、研讨室的管理控制台与预约审核。</p>
             </div>
             
-            <div class="card" onclick="alert('场地管理模块尚未接入此大盘面板。')">
+            <div class="card" id="btn-venue-mgr" tabindex="0" role="button" aria-label="打开场地管理">
                 <h3>🏟️ 场地管理</h3>
                 <p style="color:#888;">体育场馆、公共场地的排期及风控管理。</p>
             </div>
             
-            <div class="card" id="btn-ticket-mgr">
+            <div class="card" id="btn-ticket-mgr" tabindex="0" role="button" aria-label="打开票务管理">
                 <h3>🎫 票务管理</h3>
                 <p style="color:#888;">高并发热门活动的抢票成功明细与统计，查看用户抢占时间轴，发布及管理活动。</p>
             </div>
-        </div>
+        </nav>
+
+        <section id="room-management-section" style="display:none; margin-top:30px; border-top:2px solid #eee; padding-top:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0; color:#2196f3;">房间管理台</h2>
+                <button id="btn-room-back" style="padding:10px 20px; font-size:1em; background:#9e9e9e; color:white; border:none; border-radius:5px; cursor:pointer;">返回大盘</button>
+            </div>
+            <div id="room-list-container">
+                <p style="color:#888;">点击房间管理后加载数据...</p>
+            </div>
+        </section>
+
+        <section id="venue-management-section" style="display:none; margin-top:30px; border-top:2px solid #eee; padding-top:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0; color:#2196f3;">场地管理台</h2>
+                <button id="btn-venue-back" style="padding:10px 20px; font-size:1em; background:#9e9e9e; color:white; border:none; border-radius:5px; cursor:pointer;">返回大盘</button>
+            </div>
+            <div id="venue-list-container">
+                <p style="color:#888;">点击场地管理后加载数据...</p>
+            </div>
+        </section>
 
         <div id="ticket-management-section" style="display:none; margin-top:30px; border-top:2px solid #eee; padding-top:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
                 <h2 style="margin:0; color:#2196f3;">票务管理台</h2>
-                <button id="btn-show-publish" style="padding:10px 20px; font-size:1em; background:#4caf50; color:white; border:none; border-radius:5px; cursor:pointer;">发布新活动</button>
+                <div style="display:flex; gap:8px;">
+                    <button id="btn-ticket-back" style="padding:10px 20px; font-size:1em; background:#9e9e9e; color:white; border:none; border-radius:5px; cursor:pointer;">返回大盘</button>
+                    <button id="btn-show-publish" style="padding:10px 20px; font-size:1em; background:#4caf50; color:white; border:none; border-radius:5px; cursor:pointer;">发布新活动</button>
+                </div>
             </div>
             
             <div class="grid-container" id="event-list-container">
