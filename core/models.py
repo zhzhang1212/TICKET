@@ -18,6 +18,15 @@ class BookingStatus(str, enum.Enum):
     no_show = "no_show"
 
 
+class EventOrderStatus(str, enum.Enum):
+    pending = "待支付"
+    confirmed = "已确认"
+    cancelled = "已取消"
+    closed = "已关闭"
+    settled = "落库成功"
+    failed = "落库失败"
+
+
 class Space(Base):
     """
     统一空间资源表，支持学术空间与体育设施两种类型。
@@ -113,3 +122,24 @@ class SportsBooking(Base):
             postgresql_where=text("status = 'confirmed'"),
         ),
     )
+
+
+class EventOrder(Base):
+    """
+    活动抢票订单表。
+    由 Redis 预扣后写入 PostgreSQL，承接异步落库与状态 CAS 的最终持久化。
+    """
+    __tablename__ = "event_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(String, unique=True, nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
+    slot_id = Column(String, nullable=False, index=True)
+    event_name = Column(String, nullable=False)
+    status = Column(Enum(EventOrderStatus), nullable=False, default=EventOrderStatus.pending)
+    version = Column(Integer, nullable=False, default=0)
+    voucher = Column(String, nullable=True)
+    cancel_time = Column(String, nullable=True)
+    ticket_ts = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=False), server_default=text("NOW()"))
+    updated_at = Column(DateTime(timezone=False), server_default=text("NOW()"), onupdate=text("NOW()"))

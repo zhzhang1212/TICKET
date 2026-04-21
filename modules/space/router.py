@@ -9,6 +9,7 @@ import json
 
 from core.database import get_db
 from core.redis_db import get_redis
+from core.security import get_current_user_id
 from core.models import Space, AcademicBooking, SportsBooking, SpaceType, BookingStatus
 from modules.rules_fsm.rule_engine.base import build_academic_chain, build_sports_chain
 from .schemas import (
@@ -111,8 +112,12 @@ async def check_academic_availability(
 @router.post("/academic/book", response_model=AcademicBookingOut, summary="预约学术空间")
 async def book_academic_space(
     req: AcademicBookingRequest,
+    current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    if req.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权代他人预约")
+
     # 1. 空间存在性校验
     space = await db.scalar(
         select(Space).where(
@@ -129,7 +134,7 @@ async def book_academic_space(
     redis = await get_redis()
 
     allowed, msg = await build_academic_chain().handle({
-        "user_id": req.user_id,
+        "user_id": current_user_id,
         "space_id": req.space_id,
         "start_time": req.start_time,
         "end_time": req.end_time,
@@ -170,7 +175,7 @@ async def book_academic_space(
         "actual_end": req.end_time.isoformat(),
         "status": "confirmed",
     }
-    await redis.hset(f"user_rooms:{req.user_id}", booking_id, json.dumps(record))
+    await redis.hset(f"user_rooms:{current_user_id}", booking_id, json.dumps(record))
 
     return AcademicBookingOut(
         booking_id=booking_id,
@@ -226,12 +231,16 @@ async def get_sports_slots(
 @router.post("/sports/book", response_model=SportsBookingOut, summary="预约体育设施（支持组合预约）")
 async def book_sports_slot(
     req: SportsBookingRequest,
+    current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
+    if req.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权代他人预约")
+
     # 1. 责任链：信誉分校验
     redis = await get_redis()
     allowed, msg = await build_sports_chain().handle({
-        "user_id": req.user_id,
+        "user_id": current_user_id,
         "redis": redis,
     })
     if not allowed:
@@ -273,7 +282,7 @@ async def book_sports_slot(
             booking = SportsBooking(
                 booking_id=bid,
                 space_id=sid,
-                user_id=req.user_id,
+                user_id=current_user_id,
                 group_booking_id=group_id,
                 slot_date=req.slot_date,
                 slot_hour=req.slot_hour,
@@ -299,7 +308,7 @@ async def book_sports_slot(
             "slot_hour": req.slot_hour,
             "status": "confirmed",
         }
-        await redis.hset(f"user_venues:{req.user_id}", bid, json.dumps(record))
+        await redis.hset(f"user_venues:{current_user_id}", bid, json.dumps(record))
 
     return SportsBookingOut(
         booking_ids=booking_ids,
@@ -317,6 +326,7 @@ async def book_sports_slot(
 async def cancel_booking(
     booking_id: str,
     req: CancelBookingRequest,
+    current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     # 先查学术预约
@@ -324,7 +334,7 @@ async def cancel_booking(
         select(AcademicBooking).where(AcademicBooking.booking_id == booking_id)
     )
     if academic:
-        if academic.user_id != req.user_id:
+        if academic.user_id != current_user_id or req.user_id != current_user_id:
             raise HTTPException(status_code=403, detail="无权取消他人的预约")
         if academic.status != BookingStatus.confirmed:
             raise HTTPException(status_code=400, detail="该预约已取消或已过期")
@@ -332,7 +342,7 @@ async def cancel_booking(
         await db.commit()
 
         redis = await get_redis()
-        await redis.hdel(f"user_rooms:{req.user_id}", booking_id)
+        await redis.hdel(f"user_rooms:{current_user_id}", booking_id)
         return {"message": "学术空间预约已取消", "booking_id": booking_id}
 
     # 再查体育预约
@@ -340,7 +350,7 @@ async def cancel_booking(
         select(SportsBooking).where(SportsBooking.booking_id == booking_id)
     )
     if sports:
-        if sports.user_id != req.user_id:
+        if sports.user_id != current_user_id or req.user_id != current_user_id:
             raise HTTPException(status_code=403, detail="无权取消他人的预约")
         if sports.status != BookingStatus.confirmed:
             raise HTTPException(status_code=400, detail="该预约已取消或已过期")
@@ -362,7 +372,7 @@ async def cancel_booking(
             # 归还 Redis slot 库存
             key = _sports_slot_key(b.space_id, b.slot_date, b.slot_hour)
             await redis.incr(key)
-            await redis.hdel(f"user_venues:{req.user_id}", b.booking_id)
+            await redis.hdel(f"user_venues:{current_user_id}", b.booking_id)
 
         await db.commit()
         return {
@@ -426,7 +436,10 @@ async def get_all_bookings(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/bookings/user/{user_id}", response_model=UserBookingsOut, summary="获取用户所有预约")
-async def get_user_bookings(user_id: str, db: AsyncSession = Depends(get_db)):
+async def get_user_bookings(user_id: str, current_user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权访问他人预约记录")
+
     academic_rows = (await db.execute(
         select(AcademicBooking, Space.name).join(
             Space, AcademicBooking.space_id == Space.space_id

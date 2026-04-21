@@ -1,3 +1,4 @@
+import asyncio
 import time
 import json
 import logging
@@ -7,6 +8,9 @@ from celery import Celery
 import redis
 from modules.rules_fsm.fsm.order_fsm import OrderStateMachine
 from core.redis_db import get_redis
+from core.database import AsyncSessionLocal
+from core.models import EventOrder, EventOrderStatus
+from sqlalchemy import select, update
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 
@@ -56,20 +60,43 @@ async def create_order_record(
     if not created:
         return False
 
-    await redis_client.hset(
-        key,
-        mapping={
-            "order_id": order_id,
-            "user_id": user_id,
-            "slot_id": slot_id,
-            "event_name": event_name,
-            "status": status,
-            "version": str(version),
-            "ticket_ts": ticket_ts,
-        },
-    )
-    await redis_client.expire(key, 24 * 3600)
-    return True
+    try:
+        async with AsyncSessionLocal() as db:
+            exists = await db.scalar(select(EventOrder.id).where(EventOrder.order_id == order_id))
+            if exists:
+                await redis_client.delete(key)
+                return False
+
+            db.add(
+                EventOrder(
+                    order_id=order_id,
+                    user_id=user_id,
+                    slot_id=slot_id,
+                    event_name=event_name,
+                    status=EventOrderStatus.pending,
+                    version=version,
+                    ticket_ts=ticket_ts,
+                )
+            )
+            await db.commit()
+
+        await redis_client.hset(
+            key,
+            mapping={
+                "order_id": order_id,
+                "user_id": user_id,
+                "slot_id": slot_id,
+                "event_name": event_name,
+                "status": status,
+                "version": str(version),
+                "ticket_ts": ticket_ts,
+            },
+        )
+        await redis_client.expire(key, 24 * 3600)
+        return True
+    except Exception:
+        await redis_client.delete(key)
+        raise
 
 
 async def cas_transition_order(
@@ -83,6 +110,31 @@ async def cas_transition_order(
     """订单状态 CAS（乐观锁），防止支付/取消/超时竞态写穿。"""
     redis_client = await get_redis()
     key = f"event_order:{order_id}"
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            update(EventOrder)
+            .where(
+                EventOrder.order_id == order_id,
+                EventOrder.status == expected_status,
+                EventOrder.version == expected_version,
+            )
+            .values(
+                status=next_status,
+                version=EventOrder.version + 1,
+                voucher=voucher if voucher is not None else EventOrder.voucher,
+                cancel_time=cancel_time if cancel_time is not None else EventOrder.cancel_time,
+            )
+        )
+        await db.commit()
+
+        if result.rowcount != 1:
+            current = await db.scalar(select(EventOrder).where(EventOrder.order_id == order_id))
+            if not current:
+                return False, "not_found"
+            if current.status != expected_status:
+                return False, "status_mismatch"
+            return False, "version_mismatch"
 
     result = await redis_client.eval(
         _LUA_ORDER_CAS,
@@ -117,6 +169,17 @@ def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, ord
             sync_redis.incr(f"slot_stock:{slot_id}")
             return
 
+        async def _mark_confirmed():
+            async with AsyncSessionLocal() as db:
+                await db.execute(
+                    update(EventOrder)
+                    .where(EventOrder.order_id == order_id)
+                    .values(status=EventOrderStatus.settled, voucher=voucher)
+                )
+                await db.commit()
+
+        asyncio.run(_mark_confirmed())
+
         booking_record = {
             "user_id": user_id,
             "order_id": order_id,
@@ -138,6 +201,17 @@ def confirm_booking_task(self, user_id: str, resource_id: str, slot_id: str, ord
         sync_redis.incr(f"slot_stock:{slot_id}")
         OrderStateMachine.transition_sync(sync_redis, user_id, order_id, "error")
 
+        async def _mark_failed():
+            async with AsyncSessionLocal() as db:
+                await db.execute(
+                    update(EventOrder)
+                    .where(EventOrder.order_id == order_id)
+                    .values(status=EventOrderStatus.failed)
+                )
+                await db.commit()
+
+        asyncio.run(_mark_failed())
+
 
 @celery_app.task(bind=True)
 def payment_timeout_task(self, user_id: str, slot_id: str, order_id: str):
@@ -153,6 +227,17 @@ def payment_timeout_task(self, user_id: str, slot_id: str, order_id: str):
         return
 
     logging.warning(f"用户 {user_id} 超时未支付订单 {order_id}，判定违约。")
+
+    async def _mark_closed():
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                update(EventOrder)
+                .where(EventOrder.order_id == order_id)
+                .values(status=EventOrderStatus.closed)
+            )
+            await db.commit()
+
+    asyncio.run(_mark_closed())
 
     sync_redis.incr(f"slot_stock:{slot_id}")
 

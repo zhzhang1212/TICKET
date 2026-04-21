@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, HTTPException, Depends, Header
 from typing import List, Optional
 from pydantic import BaseModel
-from modules.event.schemas import EventTicketRequest, EventCreate, EventTicketResponse, EventDetailResponse, BookingRecord, EventUpdate
+from modules.event.schemas import EventTicketRequest, EventCreate, EventTicketResponse, EventDetailResponse, BookingRecord, EventUpdate, EventActionResponse
 from core.redis_db import get_redis
 from modules.event.tasks import (
     confirm_booking_task,
@@ -15,6 +15,7 @@ import json
 import uuid
 from datetime import datetime
 from core.judge import check_seckill_prerequisites
+from core.security import get_current_user_id
 
 router = APIRouter(prefix="/events", tags=["Module B: 活动秒杀"])
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "dev-admin-key")
@@ -35,7 +36,7 @@ async def require_admin_key(
     if x_admin_key != ADMIN_API_KEY:
         raise HTTPException(status_code=403, detail="管理员鉴权失败")
 
-@router.post("/", summary="【管理员接口】发布一个可抢的时段/活动")
+@router.post("/", response_model=EventActionResponse, summary="【管理员接口】发布一个可抢的时段/活动")
 async def create_event(event: EventCreate, _: None = Depends(require_admin_key)):
     redis = await get_redis()
     slot_key = f"slot_stock:{event.slot_id}"
@@ -150,7 +151,7 @@ async def get_event_detail(slot_id: str, user_id: Optional[str] = None):
         cancel_penalty_remain_sec=cancel_penalty_remain_sec
     )
 
-@router.patch("/{slot_id}", summary="【管理员接口】更新活动信息，增减售票总数")
+@router.patch("/{slot_id}", response_model=EventActionResponse, summary="【管理员接口】更新活动信息，增减售票总数")
 async def update_event(slot_id: str, event: EventUpdate, _: None = Depends(require_admin_key)):
     redis = await get_redis()
     info_key = f"event_info:{slot_id}"
@@ -193,10 +194,13 @@ class EventTicketResponse2(EventTicketResponse):
     order_id: Optional[str] = None
 
 @router.post("/seckill", response_model=EventTicketResponse2, summary="【用户接口】热门活动的门票抢注")
-async def seckill_event_ticket(request: EventTicketRequest):
+async def seckill_event_ticket(request: EventTicketRequest, current_user_id: str = Depends(get_current_user_id)):
     redis = await get_redis()
 
-    is_eligible, msg = await check_seckill_prerequisites(request.user_id, request.slot_id)
+    if request.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权代他人抢票")
+
+    is_eligible, msg = await check_seckill_prerequisites(current_user_id, request.slot_id)
     if not is_eligible:
         raise HTTPException(status_code=400, detail=msg)
 
@@ -212,17 +216,17 @@ async def seckill_event_ticket(request: EventTicketRequest):
         "timestamp": timestamp,
         "version": 0,
     }
-    await redis.hset(f"user_tickets:{request.user_id}", order_id, json.dumps(ticket_info))
+    await redis.hset(f"user_tickets:{current_user_id}", order_id, json.dumps(ticket_info))
 
     success = await redis.eval(LUA_DECR_SCRIPT, 1, slot_key)
     if not success:
         ticket_info["status"] = "失败 (已售罄)"
-        await redis.hset(f"user_tickets:{request.user_id}", order_id, json.dumps(ticket_info))
+        await redis.hset(f"user_tickets:{current_user_id}", order_id, json.dumps(ticket_info))
         raise HTTPException(status_code=400, detail="手慢了，该时段资源已被抢空！")
 
     db_created = await create_order_record(
         order_id=order_id,
-        user_id=request.user_id,
+        user_id=current_user_id,
         slot_id=request.slot_id,
         event_name=request.resource_id,
         status="待支付",
@@ -231,12 +235,12 @@ async def seckill_event_ticket(request: EventTicketRequest):
     )
     if not db_created:
         ticket_info["status"] = "失败 (落单冲突)"
-        await redis.hset(f"user_tickets:{request.user_id}", order_id, json.dumps(ticket_info))
+        await redis.hset(f"user_tickets:{current_user_id}", order_id, json.dumps(ticket_info))
         await redis.incr(slot_key)
         raise HTTPException(status_code=409, detail="订单创建冲突，请重试")
 
     payment_timeout_task.apply_async(
-        args=[request.user_id, request.slot_id, order_id], countdown=300
+        args=[current_user_id, request.slot_id, order_id], countdown=300
     )
 
     return EventTicketResponse2(
@@ -252,13 +256,16 @@ class PaymentRequest(BaseModel):
     slot_id: str
     order_id: str
 
-@router.post("/pay", summary="【用户接口】确认支付订单")
-async def pay_event_ticket(request: PaymentRequest):
+@router.post("/pay", response_model=EventActionResponse, summary="【用户接口】确认支付订单")
+async def pay_event_ticket(request: PaymentRequest, current_user_id: str = Depends(get_current_user_id)):
     redis = await get_redis()
     voucher = f"V_{uuid.uuid4().hex[:8].upper()}"
 
+    if request.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权操作他人订单")
+
     ok, updated, reason = await OrderStateMachine.transition_async(
-        redis, request.user_id, request.order_id, "pay",
+        redis, current_user_id, request.order_id, "pay",
         extra={"voucher": voucher},
     )
     if not ok:
@@ -280,19 +287,22 @@ async def pay_event_ticket(request: PaymentRequest):
         raise HTTPException(status_code=409, detail=f"数据库状态冲突（{db_reason}）")
 
     confirm_booking_task.delay(
-        request.user_id, updated.get("event_name", ""), request.slot_id,
+        current_user_id, updated.get("event_name", ""), request.slot_id,
         request.order_id, voucher, updated.get("timestamp", ""),
     )
     return {"message": "支付成功，系统正在安排落库！", "voucher": voucher}
 
 
-@router.post("/cancel", summary="【用户接口】取消订单")
-async def cancel_event_ticket(request: PaymentRequest):
+@router.post("/cancel", response_model=EventActionResponse, summary="【用户接口】取消订单")
+async def cancel_event_ticket(request: PaymentRequest, current_user_id: str = Depends(get_current_user_id)):
     redis = await get_redis()
     cancel_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    if request.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权操作他人订单")
+
     ok, updated, reason = await OrderStateMachine.transition_async(
-        redis, request.user_id, request.order_id, "cancel",
+        redis, current_user_id, request.order_id, "cancel",
         extra={"cancel_time": cancel_time},
     )
     if not ok:
@@ -313,7 +323,7 @@ async def cancel_event_ticket(request: PaymentRequest):
 
     await redis.incr(f"slot_stock:{request.slot_id}")
     await redis.setex(
-        f"penalty:user_cancel:{request.user_id}:{request.slot_id}", 600, cancel_time
+        f"penalty:user_cancel:{current_user_id}:{request.slot_id}", 600, cancel_time
     )
     return {"message": "订单取消成功", "order_id": request.order_id}
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response, Depends
 from pydantic import BaseModel
 import hashlib
 import hmac
@@ -6,6 +6,7 @@ import secrets
 import uuid
 import json
 from core.redis_db import get_redis
+from core.security import issue_session_token, get_current_user_id, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS
 
 router = APIRouter(prefix="/auth", tags=["Global Auth"])
 
@@ -15,6 +16,20 @@ PASSWORD_ITERATIONS = 390000
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class LoginResponse(BaseModel):
+    message: str
+    user_id: str
+    username: str
+    reputation: int
+    ws_token: str
+
+
+class UserProfileResponse(BaseModel):
+    tickets: list[dict]
+    rooms: list[dict]
+    venues: list[dict]
 
 
 def _hash_password(password: str) -> str:
@@ -56,8 +71,8 @@ async def _issue_ws_token(redis, user_id: str) -> str:
     await redis.setex(f"ws_token:{token}", 12 * 3600, user_id)
     return token
 
-@router.post("/login", summary="用户登录与自动注册接口")
-async def login_or_register(req: LoginRequest):
+@router.post("/login", response_model=LoginResponse, summary="用户登录与自动注册接口")
+async def login_or_register(req: LoginRequest, response: Response):
     """
     检查 Redis 中是否存在此用用户名。
     - 若不存在，自动创建（密码即为当前密码），并初始化其信誉分等所有信息。
@@ -80,6 +95,15 @@ async def login_or_register(req: LoginRequest):
         
         user_id = await redis.hget(user_key, "user_id")
         reputation = await redis.hget(user_key, "reputation")
+        session_token = await issue_session_token(user_id)
+        response.set_cookie(
+            key=SESSION_COOKIE_NAME,
+            value=session_token,
+            max_age=SESSION_TTL_SECONDS,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
         ws_token = await _issue_ws_token(redis, user_id)
         return {
             "message": "登录成功！", 
@@ -101,6 +125,15 @@ async def login_or_register(req: LoginRequest):
             "rooms": "[]"         # 持有的房间（序列化JSON表）
         })
 
+        session_token = await issue_session_token(new_user_id)
+        response.set_cookie(
+            key=SESSION_COOKIE_NAME,
+            value=session_token,
+            max_age=SESSION_TTL_SECONDS,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
         ws_token = await _issue_ws_token(redis, new_user_id)
         
         return {
@@ -111,11 +144,14 @@ async def login_or_register(req: LoginRequest):
             "ws_token": ws_token,
         }
 
-@router.get("/profile/{user_id}", summary="获取用户各项预定状态")
-async def get_user_profile(user_id: str):
+@router.get("/profile/{user_id}", response_model=UserProfileResponse, summary="获取用户各项预定状态")
+async def get_user_profile(user_id: str, current_user_id: str = Depends(get_current_user_id)):
     """
     返回用户所有的活动抢票状态以及空间预定情况
     """
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="无权访问他人档案")
+
     redis = await get_redis()
     
     # 抢票记录

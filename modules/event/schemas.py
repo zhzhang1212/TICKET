@@ -44,3 +44,10 @@ class EventTicketResponse(BaseModel):
     message: str
     slot_id: str
     order_id: Optional[str] = None
+
+
+class EventActionResponse(BaseModel):
+    message: str
+    slot_id: Optional[str] = None
+    order_id: Optional[str] = None
+    voucher: Optional[str] = None
