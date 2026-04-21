@@ -71,10 +71,10 @@
 以某学生在 UI 点击**“预约 周五 18:00 羽毛球场”**为例：
 
 1. **前端触发 (Static JS)**
-   用户点击界面（`static/js/features/booking.js` 拦截动作），封装用户 ID 与他要抢占的目标 `Slot_ID` 值，通过 Ajax (Fetch) 抛向后端预约接口 `/api/v1/booking`。
+   用户点击界面（`modules/event/static/js/booking.js` 拦截动作），封装用户 ID 与他要抢占的目标 `Slot_ID` 值，通过 Ajax (Fetch) 抛向后端秒杀接口 `/api/v1/events/seckill`。
    
-2. **网关拦截与风控校验 (FastAPI + Core/scoring.py)**
-   接收到数据。控制器先向 `core/scoring.py` 对比学生的风控信誉档案与本周可用次数。
+2. **网关拦截与风控校验 (FastAPI + core/judge.py)**
+   接收到数据。控制器先向 `core/judge.py` 对比学生的风控信誉档案与活动窗口、取消惩罚等前置条件。
    若是不满足（如上周爽约未扣完分），路由火速在最不耗资源的地方中断并踢回 `HTTP 403/400 警告`。
 
 3. **Redis 毫秒级争抢决断 (Redis/Lua)**
@@ -231,13 +231,11 @@ AI 辅助工具：允许并鼓励使用 AI 编程助手（Claude, GitHub Copilot
 数据要求：允许使用模拟（Mock）数据，不要求与学校真实的教务系统打通，但
 底层数据结构必须具备接入真实数据的合理性与落地能力
 
-###需要在最后阶段补充dockerfile以及CI/CD配置###
-
 （以上缺失项均已在当前版本中完善。详细部署方式与运行说明如下。）
 
 ## 8. 部署方式与运行说明
 
-本项目原生支持 `docker-compose`，所有基础设施（PostgreSQL, Redis, RabbitMQ等）和应用服务（Web, Worker）无需手动安装，全量容器化编排。
+本项目原生支持 `docker-compose`，所有基础设施（PostgreSQL, Redis）和应用服务（Web, Worker）无需手动安装，全量容器化编排。
 
 **环境依赖：**
 - Docker (建议 20.10+版本)
@@ -292,3 +290,11 @@ curl -X POST "http://localhost:8000/api/v1/events/" \
 1. **Linting** (`ruff check .`) 检查风格冗余
 2. **单元测试** (`pytest`) 验证核心的订单状态机（FSM）与抽象规则过滤组件。
 3. **冒烟测试** 建立临时容器，完成基于多阶段构建的组装和部署生命周期测试。
+
+## 9. 写在最后
+
+Here is a sunflower for zzh.
+
+🌻
+
+——lhs 2026.4.22 01:03

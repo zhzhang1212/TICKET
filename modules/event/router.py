@@ -108,7 +108,10 @@ async def get_all_events():
     return events
 
 @router.get("/{slot_id}", response_model=EventDetailResponse, summary="【用户接口】获取活动的特定信息、余票和成交记录")
-async def get_event_detail(slot_id: str, user_id: Optional[str] = None):
+async def get_event_detail(
+    slot_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
     redis = await get_redis()
     info_key = f"event_info:{slot_id}"
     slot_key = f"slot_stock:{slot_id}"
@@ -134,10 +137,9 @@ async def get_event_detail(slot_id: str, user_id: Optional[str] = None):
         successful_bookings.append(BookingRecord(**record))
 
     cancel_penalty_remain_sec = 0
-    if user_id:
-        penalty_ttl = await redis.ttl(f"penalty:user_cancel:{user_id}:{slot_id}")
-        if penalty_ttl > 0:
-            cancel_penalty_remain_sec = penalty_ttl
+    penalty_ttl = await redis.ttl(f"penalty:user_cancel:{current_user_id}:{slot_id}")
+    if penalty_ttl > 0:
+        cancel_penalty_remain_sec = penalty_ttl
 
     return EventDetailResponse(
         slot_id=slot_id,
