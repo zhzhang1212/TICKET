@@ -31,6 +31,43 @@ function initSpacePanels() {
     let roomSelectedDate = fmtDate(new Date());
     let venueSelectedDate = fmtDate(new Date());
 
+    const getAdminKey = () => {
+        const input = document.getElementById("admin-key-input");
+        const inputKey = (input && input.value ? input.value.trim() : "");
+        const cachedKey = window.localStorage.getItem("fsm_admin_key") || "";
+        // 保持与后端默认值一致，避免首次进入管理台就 403。
+        const key = inputKey || cachedKey || "dev-admin-key";
+        if (input && !input.value && key) {
+            input.value = key;
+        }
+        return key;
+    };
+
+    const fetchAdminBookings = async () => {
+        const doFetch = (key) => fetch("/api/v1/spaces/admin/bookings", {
+            headers: { "X-Admin-Key": key },
+        });
+
+        let adminKey = getAdminKey();
+        let resp = await doFetch(adminKey);
+        if (resp.status !== 403) {
+            return resp;
+        }
+
+        const manualKey = window.prompt("请输入管理员密钥以加载预约总览", adminKey || "");
+        if (!manualKey || !manualKey.trim()) {
+            return resp;
+        }
+
+        adminKey = manualKey.trim();
+        window.localStorage.setItem("fsm_admin_key", adminKey);
+        const input = document.getElementById("admin-key-input");
+        if (input) {
+            input.value = adminKey;
+        }
+        return doFetch(adminKey);
+    };
+
     const renderMatrixTable = (rows, headers, title, subtitle) => {
         return `
             <div style="margin-bottom:10px;">
@@ -74,7 +111,7 @@ function initSpacePanels() {
         try {
             const [spaceResp, bookingResp] = await Promise.all([
                 fetch("/api/v1/spaces/academic"),
-                fetch("/api/v1/spaces/admin/bookings"),
+                fetchAdminBookings(),
             ]);
 
             if (!spaceResp.ok || !bookingResp.ok) {
@@ -171,7 +208,7 @@ function initSpacePanels() {
         try {
             const [spaceResp, bookingResp] = await Promise.all([
                 fetch("/api/v1/spaces/sports"),
-                fetch("/api/v1/spaces/admin/bookings"),
+                fetchAdminBookings(),
             ]);
 
             if (!spaceResp.ok || !bookingResp.ok) {
@@ -471,6 +508,7 @@ function initFsmPanel() {
                 alert("❌ 请先输入管理员密钥！");
                 return;
             }
+            window.localStorage.setItem("fsm_admin_key", adminKey);
 
             const mode = editEventId ? editEventId.value : "";
             const slot_id = editEventSlotId ? editEventSlotId.value : "";
