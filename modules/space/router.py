@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+import os
+import uuid
+import json
+from datetime import datetime, date, timedelta
+from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException, Depends, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError
-from typing import List, Optional
-from datetime import datetime, date, timedelta
-import uuid
-import json
 
 from core.database import get_db
 from core.redis_db import get_redis
@@ -16,6 +18,15 @@ from .schemas import (
     AcademicBookingRequest, SportsBookingRequest, CancelBookingRequest,
     SpaceOut, SlotInfo, AcademicBookingOut, SportsBookingOut, UserBookingsOut,
 )
+
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "dev-admin-key")
+
+
+async def _require_admin(
+    x_admin_key: Optional[str] = Header(default=None, alias="X-Admin-Key"),
+):
+    if x_admin_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=403, detail="管理员鉴权失败")
 
 router = APIRouter(prefix="/spaces", tags=["Module A: 空间预订"])
 
@@ -386,7 +397,7 @@ async def cancel_booking(
 # ── 用户预约列表 ──────────────────────────────────────────────────────
 
 @router.get("/admin/bookings", summary="【管理员接口】获取全部预约记录")
-async def get_all_bookings(db: AsyncSession = Depends(get_db)):
+async def get_all_bookings(db: AsyncSession = Depends(get_db), _: None = Depends(_require_admin)):
     academic_rows = (await db.execute(
         select(AcademicBooking, Space.name).join(
             Space, AcademicBooking.space_id == Space.space_id
@@ -433,6 +444,45 @@ async def get_all_bookings(db: AsyncSession = Depends(get_db)):
     ]
 
     return {"academic": academic_out, "sports": sports_out}
+
+
+@router.post("/admin/bookings/{booking_id}/no_show", summary="【管理员接口】标记用户爽约并扣除信誉分")
+async def mark_no_show(
+    booking_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_admin),
+):
+    """
+    将一条 confirmed 状态的预约标记为 no_show，并扣除用户 10 分信誉分。
+    学术和体育预约均支持。
+    """
+    NO_SHOW_PENALTY = 10
+
+    academic = await db.scalar(
+        select(AcademicBooking).where(AcademicBooking.booking_id == booking_id)
+    )
+    if academic:
+        if academic.status != BookingStatus.confirmed:
+            raise HTTPException(status_code=400, detail="该预约不处于 confirmed 状态，无法标记爽约")
+        academic.status = BookingStatus.no_show
+        await db.commit()
+        user_id = academic.user_id
+    else:
+        sports = await db.scalar(
+            select(SportsBooking).where(SportsBooking.booking_id == booking_id)
+        )
+        if not sports:
+            raise HTTPException(status_code=404, detail="预约记录不存在")
+        if sports.status != BookingStatus.confirmed:
+            raise HTTPException(status_code=400, detail="该预约不处于 confirmed 状态，无法标记爽约")
+        sports.status = BookingStatus.no_show
+        await db.commit()
+        user_id = sports.user_id
+
+    from core.judge import penalize_user
+    await penalize_user(user_id, NO_SHOW_PENALTY)
+
+    return {"message": f"已标记爽约，用户 {user_id} 扣除 {NO_SHOW_PENALTY} 分信誉分", "booking_id": booking_id}
 
 
 @router.get("/bookings/user/{user_id}", response_model=UserBookingsOut, summary="获取用户所有预约")

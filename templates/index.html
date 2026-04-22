@@ -141,12 +141,35 @@
                         div.setAttribute('role', 'button');
                         div.setAttribute('aria-label', `查看订单 ${t.order_id}，状态：${t.status}`);
                         div.style.borderLeft = `4px solid ${color}`;
-                        div.innerHTML = `
-                            <strong>${t.event_name}</strong> [${t.slot_id}]<br>
-                            状态：<span style="color:${color}; font-weight:bold;">${t.status}</span><br>
-                            凭证：<span style="font-family:monospace;">${t.voucher || '--'}</span>
-                            ${t.timestamp ? `<br><span style="font-size:0.85em;color:#555;">${t.timestamp}</span>` : ''}
-                        `;
+
+                        const strong = document.createElement('strong');
+                        strong.textContent = t.event_name;
+                        div.appendChild(strong);
+                        div.appendChild(document.createTextNode(` [${t.slot_id}]`));
+                        div.appendChild(document.createElement('br'));
+
+                        const statusLine = document.createTextNode('状态：');
+                        div.appendChild(statusLine);
+                        const statusSpan = document.createElement('span');
+                        statusSpan.style.cssText = `color:${color};font-weight:bold`;
+                        statusSpan.textContent = t.status;
+                        div.appendChild(statusSpan);
+                        div.appendChild(document.createElement('br'));
+
+                        div.appendChild(document.createTextNode('凭证：'));
+                        const voucherSpan = document.createElement('span');
+                        voucherSpan.style.fontFamily = 'monospace';
+                        voucherSpan.textContent = t.voucher || '--';
+                        div.appendChild(voucherSpan);
+
+                        if (t.timestamp) {
+                            div.appendChild(document.createElement('br'));
+                            const tsSpan = document.createElement('span');
+                            tsSpan.style.cssText = 'font-size:0.85em;color:#555';
+                            tsSpan.textContent = t.timestamp;
+                            div.appendChild(tsSpan);
+                        }
+
                         const nav = () => window.location.href = `/event/ticket?order_id=${t.order_id}`;
                         div.addEventListener('click', nav);
                         div.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') nav(); });
@@ -156,21 +179,49 @@
                     document.getElementById("records-tickets").appendChild(frag);
                 }
 
-                document.getElementById("records-rooms").innerHTML = data.rooms.length === 0
-                    ? "<span style='color:#888;'>暂无空间排期</span>"
-                    : data.rooms.map(r => {
+                const roomsEl = document.getElementById("records-rooms");
+                if (data.rooms.length === 0) {
+                    roomsEl.innerHTML = "<span style='color:#888;'>暂无空间排期</span>";
+                } else {
+                    roomsEl.textContent = "";
+                    data.rooms.forEach(r => {
                         const info = typeof r === "string" ? JSON.parse(r) : r;
                         const s = info.actual_start ? new Date(info.actual_start).toLocaleString("zh", {month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
                         const e = info.actual_end ? new Date(info.actual_end).toLocaleTimeString("zh", {hour:"2-digit",minute:"2-digit"}) : "";
-                        return `<p style="margin:4px 0;"><strong>${info.space_name||info.space_id}</strong><br><span style="font-size:0.85em;color:#555;">${s}–${e}</span></p>`;
-                    }).join("");
+                        const p = document.createElement('p');
+                        p.style.margin = '4px 0';
+                        const strong = document.createElement('strong');
+                        strong.textContent = info.space_name || info.space_id;
+                        p.appendChild(strong);
+                        p.appendChild(document.createElement('br'));
+                        const span = document.createElement('span');
+                        span.style.cssText = 'font-size:0.85em;color:#555';
+                        span.textContent = `${s}–${e}`;
+                        p.appendChild(span);
+                        roomsEl.appendChild(p);
+                    });
+                }
 
-                document.getElementById("records-venues").innerHTML = data.venues.length === 0
-                    ? "<span style='color:#888;'>暂无场馆排期</span>"
-                    : data.venues.map(v => {
+                const venuesEl = document.getElementById("records-venues");
+                if (data.venues.length === 0) {
+                    venuesEl.innerHTML = "<span style='color:#888;'>暂无场馆排期</span>";
+                } else {
+                    venuesEl.textContent = "";
+                    data.venues.forEach(v => {
                         const info = typeof v === "string" ? JSON.parse(v) : v;
-                        return `<p style="margin:4px 0;"><strong>${info.space_id}</strong><br><span style="font-size:0.85em;color:#555;">${info.slot_date} ${info.slot_hour}:00</span></p>`;
-                    }).join("");
+                        const p = document.createElement('p');
+                        p.style.margin = '4px 0';
+                        const strong = document.createElement('strong');
+                        strong.textContent = info.space_id;
+                        p.appendChild(strong);
+                        p.appendChild(document.createElement('br'));
+                        const span = document.createElement('span');
+                        span.style.cssText = 'font-size:0.85em;color:#555';
+                        span.textContent = `${info.slot_date} ${info.slot_hour}:00`;
+                        p.appendChild(span);
+                        venuesEl.appendChild(p);
+                    });
+                }
 
                 document.getElementById("my-bookings").style.display = "block";
             } catch (e) {

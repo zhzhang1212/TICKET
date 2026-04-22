@@ -238,58 +238,140 @@ AI 辅助工具：允许并鼓励使用 AI 编程助手（Claude, GitHub Copilot
 本项目原生支持 `docker-compose`，所有基础设施（PostgreSQL, Redis）和应用服务（Web, Worker）无需手动安装，全量容器化编排。
 
 **环境依赖：**
-- Docker (建议 20.10+版本)
+- Docker（建议 20.10+ 版本）
 - Docker Compose v2 插件
 
-### 一键启动
+### 第一步：准备环境变量
 
-在项目根目录下执行：
 ```bash
-# 以后台模式构建并启动所有服务（构建时自动采用多阶段部署以降低镜像体积）
+cp .env.example .env
+```
+
+`.env.example` 已包含本地开发所需的全部默认值，直接复制即可，无需修改。
+
+### 第二步：一键启动
+
+```bash
 docker compose up -d --build
 ```
 
-此时系统将拉起 4 个容器：
-1. `postgres` (带健康检查与 btree_gist 特性)
-2. `redis` 
-3. `web` (FastAPI 网关与前端静态托管，暴露在 8000 端口)
-4. `worker` (Celery 队列消费守护进程)
+此命令自动构建镜像并启动全部 4 个容器：
 
-你可以使用 `docker compose logs -f web worker` 跟踪运行日志。
+| 容器 | 作用 | 端口 |
+|------|------|------|
+| `postgres` | 主数据库，含健康检查与 btree_gist 扩展 | 5432 |
+| `redis` | 缓存 + 消息队列 Broker | 6379 |
+| `web` | FastAPI 主服务 + 静态资源托管 | **8000** |
+| `worker` | Celery 异步任务消费进程 | — |
 
-### 访问面板与功能验证
+等待约 30–60 秒（PostgreSQL 完成初始化），再进行后续访问。
 
-容器启动正常后（PostgreSQL等完成初始化配置）：
+**跟踪启动日志：**
+```bash
+docker compose logs -f web worker
+```
 
-1. **首页大厅**：浏览器访问 `http://localhost:8000/`
-2. **测试账号与身份系统**：
-   - 登录页访问：`http://localhost:8000/login`
-   - 用户名与密码（**支持空密码/自动注册**）：由于我们集成了简化身份体系。如果您输入的用户名不存在，**系统将自动注册、初始化用户并执行密码保护哈希存入**。您可以输入任意测试名（例如：`user_demo`）。
-   - 注：请避免用作真实生产环境密码，哈希已通过核心安全验证。
-3. **管理员预发测试环境：**
-   我们内置了如下测试数据流，也可自己按需要发起 API 初始化：
-   - **学术空间及体育设施**在后端冷启动时已经由 `main.py` 的 seed 函数预置。
-   - **活动预发：** 如果你想通过管理员模式下发抢票活动给全站用户，可以参照下面的命令触发 API（替换时间与名额，确保 `-H "X-Admin-Key"` 与环境变量相符，默认为 `dev-admin-key`）：
+**验证全部服务健康：**
+```bash
+docker compose ps          # 所有服务均为 healthy / running
+curl http://localhost:8000/ # 返回 HTML 即正常
+```
+
+---
+
+### 用户操作流程（普通评委）
+
+#### 1. 注册 / 登录
+访问 `http://localhost:8000/login`，输入任意用户名与密码。
+
+- 首次输入 → 系统自动注册并以 PBKDF2 哈希存储密码
+- 再次输入相同用户名密码 → 正常登录
+
+登录后跳转至首页 `http://localhost:8000/`，顶部显示当前用户名与信誉分。
+
+#### 2. 模块 A：空间预订（`http://localhost:8000/space`）
+
+**学术空间（会议室）：**
+1. 点击任意学术空间卡片选中
+2. 填写开始 / 结束时间，点击「查询可用性」
+3. 若时段可用，点击「确认预约」
+4. 系统自动在前后各锁定 5 分钟缓冲期，防止与其他预约冲突
+
+**体育设施：**
+1. 切换至「体育设施」Tab，选择日期
+2. 勾选一个或多个「支持组合」的场地，点击绿色可用时段
+3. 点击「确认预约」完成组合 / 单场地预约
+
+**取消预约：**
+在「我的预约」面板中点击对应记录的「取消」按钮。
+
+#### 3. 模块 B：活动秒杀（`http://localhost:8000/event`）
+
+*需先由管理员发布活动，见下方管理员流程。*
+
+1. 进入活动大厅，点击任意活动卡片
+2. 进入活动详情页，点击「点击报名 / 抢票」
+3. 抢票成功后显示「待支付」订单，5 分钟内点击「立即模拟支付」
+4. 支付后 Celery Worker 异步落库，WebSocket 实时推送「落库成功」通知
+
+---
+
+### 管理员操作流程
+
+管理员所有接口均需携带请求头 `X-Admin-Key: dev-admin-key`（对应 `.env` 中的 `ADMIN_API_KEY`）。
+
+#### 管理员 Web 界面（`http://localhost:8000/rules_fsm`）
+
+提供图形化大盘，功能包括：
+- **房间管理**：查看所有学术空间按日期/时段的预约矩阵
+- **场地管理**：查看所有体育设施的占用状态热力图
+- **票务管理**：查看活动抢票明细，并可在界面内发布/编辑活动（需填入管理员密钥）
+
+#### 通过 API 发布活动
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/events/" \
   -H "Content-Type: application/json" \
   -H "X-Admin-Key: dev-admin-key" \
   -d '{
-    "slot_id":"slot_001",
-    "event_name":"十佳歌手决赛演示",
-    "description":"模拟万级热门抢票体验",
-    "capacity":10
+    "slot_id": "slot_001",
+    "event_name": "十佳歌手决赛演示",
+    "description": "模拟万级热门抢票体验",
+    "capacity": 10
   }'
 ```
 
+#### 查看全站预约记录
+
+```bash
+curl -H "X-Admin-Key: dev-admin-key" \
+  http://localhost:8000/api/v1/spaces/admin/bookings
+```
+
+#### 标记用户爽约（扣除 10 分信誉分）
+
+```bash
+curl -X POST \
+  -H "X-Admin-Key: dev-admin-key" \
+  "http://localhost:8000/api/v1/spaces/admin/bookings/{booking_id}/no_show"
+```
+
+---
+
 ### CI/CD 验收
 
-工程已经集成标准的 `.github/workflows/ci.yml` 自动化验收管道。
-提交代码会自动触发：
-1. **Linting** (`ruff check .`) 检查风格冗余
-2. **单元测试** (`pytest`) 验证核心的订单状态机（FSM）与抽象规则过滤组件。
-3. **冒烟测试** 建立临时容器，完成基于多阶段构建的组装和部署生命周期测试。
+工程已集成标准的 `.github/workflows/ci.yml` 自动化验收管道，每次代码提交自动触发：
+
+1. **Linting**（`ruff check .`）：代码风格检查
+2. **单元测试**（`pytest`）：验证订单状态机（FSM）与规则引擎责任链
+3. **冒烟测试**：基于多阶段构建拉起完整 compose 栈，`curl` 验证服务可达
+
+### 停止与清理
+
+```bash
+docker compose down      # 停止容器，保留数据库卷
+docker compose down -v   # 停止并删除所有数据（完全重置）
+```
 
 ## 9. 写在最后
 

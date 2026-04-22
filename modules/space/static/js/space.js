@@ -51,17 +51,35 @@ async function loadAcademicSpaces() {
     const grid = document.getElementById("academic-space-grid");
     if (!spaces.length) { grid.innerHTML = "<span style='color:#aaa;'>暂无学术空间</span>"; return; }
 
-    grid.innerHTML = spaces.map(s => `
-        <div class="space-card" id="sp-ac-${s.space_id}"
-             role="button" tabindex="0" aria-pressed="false"
-             aria-label="选择 ${s.name}"
-             onclick="selectAcademicSpace('${s.space_id}', '${s.name}')"
-             onkeydown="if(event.key==='Enter'||event.key===' ')selectAcademicSpace('${s.space_id}','${s.name}')">
-            <h3>${s.name}</h3>
-            <p>${s.description || "学术空间"}</p>
-            <span class="badge badge-cap">容量 ${s.capacity} 人</span>
-        </div>
-    `).join("");
+    grid.textContent = "";
+    spaces.forEach(s => {
+        const card = document.createElement("div");
+        card.className = "space-card";
+        card.id = `sp-ac-${s.space_id}`;
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("aria-pressed", "false");
+        card.setAttribute("aria-label", `选择 ${s.name}`);
+        card.dataset.spaceId = s.space_id;
+        card.dataset.spaceName = s.name;
+
+        const h3 = document.createElement("h3");
+        h3.textContent = s.name;
+        const p = document.createElement("p");
+        p.textContent = s.description || "学术空间";
+        const badge = document.createElement("span");
+        badge.className = "badge badge-cap";
+        badge.textContent = `容量 ${s.capacity} 人`;
+
+        card.appendChild(h3);
+        card.appendChild(p);
+        card.appendChild(badge);
+
+        const nav = () => selectAcademicSpace(s.space_id, s.name);
+        card.addEventListener("click", nav);
+        card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") nav(); });
+        grid.appendChild(card);
+    });
 }
 
 window.selectAcademicSpace = function(spaceId, name) {
@@ -192,26 +210,55 @@ function renderSportsList() {
         return;
     }
 
-    listEl.innerHTML = sportsState.spacesData.map(s => {
-        const checked = sportsState.selectedSpaceIds.has(s.space_id) ? "checked" : "";
-        return `
-        <div class="card" style="margin-bottom:12px;">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
-                <label class="combine-check" for="chk-${s.space_id}">
-                    <input type="checkbox" id="chk-${s.space_id}" ${checked}
-                           ${s.is_combinable ? "" : "title='该场地不支持组合预约'"}
-                           onchange="toggleSportsSpace('${s.space_id}', ${s.is_combinable})"
-                           aria-label="选择 ${s.name}">
-                    <strong>${s.name}</strong>
-                </label>
-                ${s.is_combinable ? '<span class="badge badge-comb">支持组合</span>' : ""}
-                <span class="badge badge-cap">容量 ${s.capacity} 人</span>
-            </div>
-            <div class="slot-grid" id="slots-${s.space_id}" aria-label="${s.name} 时段">
-                ${renderSlotCells(s.space_id, s.slots)}
-            </div>
-        </div>`;
-    }).join("");
+    listEl.textContent = "";
+    sportsState.spacesData.forEach(s => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.style.marginBottom = "12px";
+
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;";
+
+        const label = document.createElement("label");
+        label.className = "combine-check";
+        label.setAttribute("for", `chk-${s.space_id}`);
+
+        const chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.id = `chk-${s.space_id}`;
+        chk.checked = sportsState.selectedSpaceIds.has(s.space_id);
+        chk.setAttribute("aria-label", `选择 ${s.name}`);
+        if (!s.is_combinable) chk.title = "该场地不支持组合预约";
+        chk.addEventListener("change", () => toggleSportsSpace(s.space_id, s.is_combinable));
+
+        const strong = document.createElement("strong");
+        strong.textContent = s.name;
+        label.appendChild(chk);
+        label.appendChild(strong);
+        row.appendChild(label);
+
+        if (s.is_combinable) {
+            const combBadge = document.createElement("span");
+            combBadge.className = "badge badge-comb";
+            combBadge.textContent = "支持组合";
+            row.appendChild(combBadge);
+        }
+
+        const capBadge = document.createElement("span");
+        capBadge.className = "badge badge-cap";
+        capBadge.textContent = `容量 ${s.capacity} 人`;
+        row.appendChild(capBadge);
+
+        const slotGrid = document.createElement("div");
+        slotGrid.className = "slot-grid";
+        slotGrid.id = `slots-${s.space_id}`;
+        slotGrid.setAttribute("aria-label", `${s.name} 时段`);
+        slotGrid.innerHTML = renderSlotCells(s.space_id, s.slots);
+
+        card.appendChild(row);
+        card.appendChild(slotGrid);
+        listEl.appendChild(card);
+    });
 }
 
 function renderSlotCells(spaceId, slots) {
