@@ -1,4 +1,4 @@
-function initSpacePanels() {
+function initSpacePanels(verifiedAdminKey) {
     const navGrid = document.querySelector("nav.grid-container");
     const roomSection = document.getElementById("room-management-section");
     const venueSection = document.getElementById("venue-management-section");
@@ -34,8 +34,9 @@ function initSpacePanels() {
     const getAdminKey = () => {
         const input = document.getElementById("admin-key-input");
         const inputKey = (input && input.value ? input.value.trim() : "");
-        const cachedKey = window.localStorage.getItem("fsm_admin_key") || "";
-        const key = inputKey || cachedKey;
+        let cachedKey = "";
+        try { cachedKey = window.localStorage.getItem("fsm_admin_key") || ""; } catch (_) {}
+        const key = inputKey || cachedKey || verifiedAdminKey;
         if (input && !input.value && key) {
             input.value = key;
         }
@@ -615,69 +616,72 @@ function initFsmPanel() {
 async function verifyAdminAccessBeforeEnter() {
     const app = document.getElementById("app");
     const gate = document.getElementById("auth-gate");
+    const form = document.getElementById("auth-form");
+    const keyInput = document.getElementById("gate-key-input");
+    const errorEl = document.getElementById("auth-error");
+    const submitBtn = form ? form.querySelector("button[type=submit]") : null;
+
+    // 尝试读取上次缓存的密钥
+    let cached = "";
+    try { cached = window.localStorage.getItem("fsm_admin_key") || ""; } catch (_) {}
+    if (keyInput && cached) keyInput.value = cached;
 
     const applyPass = (adminKey) => {
-        window.localStorage.setItem("fsm_admin_key", adminKey);
-        const input = document.getElementById("admin-key-input");
-        if (input) {
-            input.value = adminKey;
-        }
-        if (gate) {
-            gate.style.display = "none";
-        }
-        if (app) {
-            app.style.display = "block";
-        }
+        try { window.localStorage.setItem("fsm_admin_key", adminKey); } catch (_) {}
+        const panelInput = document.getElementById("admin-key-input");
+        if (panelInput) panelInput.value = adminKey;
+        if (gate) gate.style.display = "none";
+        if (app) app.style.display = "block";
     };
 
-    const verify = async (adminKey) => fetch("/api/v1/spaces/admin/bookings", {
-        headers: { "X-Admin-Key": adminKey },
+    return new Promise((resolve) => {
+        if (!form) {
+            // 降级：无表单时直接放行（不应发生）
+            if (gate) gate.style.display = "none";
+            if (app) app.style.display = "block";
+            resolve("");
+            return;
+        }
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const adminKey = keyInput ? keyInput.value.trim() : "";
+            if (!adminKey) {
+                if (errorEl) { errorEl.textContent = "请输入管理员密钥。"; errorEl.style.display = "block"; }
+                return;
+            }
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "验证中..."; }
+            if (errorEl) errorEl.style.display = "none";
+
+            try {
+                const resp = await fetch("/api/v1/spaces/admin/bookings", {
+                    headers: { "X-Admin-Key": adminKey },
+                });
+                if (resp.ok) {
+                    applyPass(adminKey);
+                    resolve(adminKey);
+                } else if (resp.status === 403) {
+                    if (errorEl) { errorEl.textContent = "密钥错误，请重试。"; errorEl.style.display = "block"; }
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "进入管理大盘"; }
+                } else {
+                    if (errorEl) { errorEl.textContent = "服务暂不可用，请稍后重试。"; errorEl.style.display = "block"; }
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "进入管理大盘"; }
+                }
+            } catch (err) {
+                console.error("管理员鉴权失败", err);
+                if (errorEl) { errorEl.textContent = "网络异常，请检查服务是否正常。"; errorEl.style.display = "block"; }
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "进入管理大盘"; }
+            }
+        });
     });
-
-    let suggestion = window.localStorage.getItem("fsm_admin_key") || "";
-    for (let i = 0; i < 5; i += 1) {
-        const entered = window.prompt("请输入管理员密钥后进入 /rules_fsm 管理大盘", suggestion);
-        if (!entered || !entered.trim()) {
-            alert("未输入管理员密钥，已返回首页。");
-            window.location.href = "/";
-            return false;
-        }
-
-        const adminKey = entered.trim();
-        suggestion = adminKey;
-
-        try {
-            const resp = await verify(adminKey);
-            if (resp.ok) {
-                applyPass(adminKey);
-                return true;
-            }
-            if (resp.status === 403) {
-                alert("管理员密钥错误，请重试。");
-                continue;
-            }
-            alert("鉴权服务暂不可用，请稍后再试。");
-            window.location.href = "/";
-            return false;
-        } catch (e) {
-            console.error("管理员鉴权失败", e);
-            alert("网络异常，无法完成管理员鉴权。");
-            window.location.href = "/";
-            return false;
-        }
-    }
-
-    alert("连续鉴权失败，已返回首页。");
-    window.location.href = "/";
-    return false;
 }
 
 async function bootstrapFsmDashboard() {
-    const passed = await verifyAdminAccessBeforeEnter();
-    if (!passed) {
+    const adminKey = await verifyAdminAccessBeforeEnter();
+    if (!adminKey) {
         return;
     }
-    initSpacePanels();
+    initSpacePanels(adminKey);
     initFsmPanel();
 }
 

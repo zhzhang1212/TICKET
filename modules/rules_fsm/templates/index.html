@@ -20,8 +20,23 @@
     </style>
 </head>
 <body>
-    <div id="auth-gate" style="display:flex; align-items:center; justify-content:center; min-height:60vh; color:#455a64; font-size:1.05em;">
-        正在进行管理员鉴权，请稍候...
+    <div id="auth-gate" style="display:flex; align-items:center; justify-content:center; min-height:60vh;">
+        <div style="background:#fff; border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.12); padding:40px 36px; max-width:380px; width:100%;">
+            <h2 style="margin:0 0 8px; color:#1a237e; font-size:1.3em;">🔐 管理员验证</h2>
+            <p style="margin:0 0 24px; color:#666; font-size:0.93em;">此页面仅供管理员使用，请输入管理员密钥后进入。</p>
+            <form id="auth-form" autocomplete="off">
+                <label for="gate-key-input" style="display:block; font-size:0.88em; font-weight:bold; color:#555; margin-bottom:6px;">管理员密钥</label>
+                <input type="password" id="gate-key-input"
+                       style="width:100%; padding:10px 12px; border:1px solid #ccc; border-radius:6px; font-size:1em; box-sizing:border-box; outline:none; transition:border 0.2s;"
+                       placeholder="输入 X-Admin-Key" autofocus>
+                <div id="auth-error" style="display:none; color:#c62828; font-size:0.88em; margin-top:8px;"></div>
+                <button type="submit"
+                        style="width:100%; margin-top:16px; padding:11px; background:#1565c0; color:#fff; border:none; border-radius:6px; font-size:1em; font-weight:bold; cursor:pointer; transition:opacity 0.2s;">
+                    进入管理大盘
+                </button>
+            </form>
+            <p style="margin:16px 0 0; font-size:0.82em; color:#aaa; text-align:center;">默认密钥：<code>dev-admin-key</code></p>
+        </div>
     </div>
     <div id="app" style="display:none;">
         <a href="/" class="back-link">← 返回首页</a>
