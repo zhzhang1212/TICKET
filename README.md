@@ -167,7 +167,7 @@ curl http://localhost:8000/ # 返回 HTML 即正常
 
 ---
 
-### 用户操作流程（普通评委）
+### 用户操作流程
 
 #### 1. 注册 / 登录
 访问 `http://localhost:8000/login`，输入任意用户名与密码。
@@ -260,11 +260,3 @@ curl -X POST \
 docker compose down      # 停止容器，保留数据库卷
 docker compose down -v   # 停止并删除所有数据（完全重置）
 ```
-
-## 6. 写在最后
-
-Here is a sunflower for zzh.
-
-🌻
-
-——lhs 2026.4.22 01:03
