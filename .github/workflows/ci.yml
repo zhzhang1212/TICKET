@@ -34,6 +34,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create CI env file
+        run: |
+          cat > .env <<'EOF'
+          DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/smartcampus
+          REDIS_HOST=redis
+          ADMIN_API_KEY=dev-admin-key
+          EOF
+
       - name: Validate compose file
         run: docker compose config
 
